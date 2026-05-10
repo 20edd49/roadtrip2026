@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
+import { ref, set, onValue } from 'firebase/database'
+import { db } from './firebase'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -734,21 +736,27 @@ function DriverSummaryCards({ stops }) {
 
 // ─── Main App ────────────────────────────────────────────────────────────────
 
-const LS_KEY = 'roadtrip2026_stops_v2'
-
-function loadStops() {
-  try {
-    const raw = localStorage.getItem(LS_KEY)
-    if (raw) return JSON.parse(raw)
-  } catch {}
-  return INITIAL_STOPS
-}
-
 export default function App() {
-  const [stops, setStops] = useState(loadStops)
+  const [stops, setStops] = useState(null)
+  const skipSaveRef = useRef(false)
 
   useEffect(() => {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(stops)) } catch {}
+    const dbRef = ref(db, 'itinerary')
+    const unsub = onValue(dbRef, (snapshot) => {
+      const raw = snapshot.val()
+      skipSaveRef.current = true
+      setStops(raw ? JSON.parse(raw.v) : INITIAL_STOPS)
+    })
+    return unsub
+  }, [])
+
+  useEffect(() => {
+    if (stops === null) return
+    if (skipSaveRef.current) {
+      skipSaveRef.current = false
+      return
+    }
+    set(ref(db, 'itinerary'), { v: JSON.stringify(stops) })
   }, [stops])
 
   function updateStop(updated) {
@@ -767,6 +775,14 @@ export default function App() {
     if (confirm('Reset all changes and restore original itinerary?')) {
       setStops(INITIAL_STOPS)
     }
+  }
+
+  if (stops === null) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-400 text-sm">Loading itinerary…</p>
+      </div>
+    )
   }
 
   return (
