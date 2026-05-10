@@ -257,29 +257,11 @@ function calcDriverStats(stops) {
   const stats = {}
   DRIVERS.forEach(d => { stats[d] = { legs: 0, minutes: 0 } })
 
-  const driveLegs = stops.filter(s => s.type === 'drive').sort((a, b) => {
-    if (a.day !== b.day) return a.day - b.day
-    return parseTimeMinutes(a.time) - parseTimeMinutes(b.time)
-  })
-
-  driveLegs.forEach((leg) => {
+  stops.filter(s => s.type === 'drive').forEach((leg) => {
     const driver = leg.driver
     if (!['ezzy', 'kevin', 'henry', 'eduardo'].includes(driver)) return
     stats[driver].legs++
-
-    const nextStop = stops.filter(s =>
-      s.day === leg.day &&
-      parseTimeMinutes(s.time) > parseTimeMinutes(leg.time)
-    ).sort((a, b) => parseTimeMinutes(a.time) - parseTimeMinutes(b.time))[0]
-
-    let endMin
-    if (nextStop) {
-      endMin = parseTimeMinutes(nextStop.time)
-      if (endMin < parseTimeMinutes(leg.time)) endMin += 24 * 60
-    } else {
-      endMin = parseTimeMinutes(leg.time) + 120
-    }
-    stats[driver].minutes += endMin - parseTimeMinutes(leg.time)
+    stats[driver].minutes += leg.driveMins || 0
   })
 
   return stats
@@ -899,16 +881,9 @@ function AddStopModal({ day, onAdd, onClose }) {
   function submit(e) {
     e.preventDefault()
     if (!form.title.trim()) return
-    const cascade = form.type === 'drive'
-      ? (form.driveMins || 0) + (form.stopMins || 0)
-      : (form.stopMins || 0)
-    onAdd({ ...form, id: uid(), day }, cascade)
+    onAdd({ ...form, id: uid(), day })
     onClose()
   }
-
-  const cascade = form.type === 'drive'
-    ? (form.driveMins || 0) + (form.stopMins || 0)
-    : (form.stopMins || 0)
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 no-print" onClick={onClose}>
@@ -1013,9 +988,6 @@ function AddStopModal({ day, onAdd, onClose }) {
             </div>
           </div>
 
-          {cascade > 0 && (
-            <p className="text-xs text-amber-600">Later stops will shift +{formatHours(cascade)}</p>
-          )}
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-200 rounded-lg py-2 text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
             <button type="submit" className="flex-1 bg-gray-900 text-white rounded-lg py-2 text-sm font-medium hover:bg-gray-700">Add</button>
@@ -1224,65 +1196,15 @@ export default function App() {
   }
 
   function updateStop(updated) {
-    setStops(prev => {
-      const old = prev.find(s => s.id === updated.id)
-      const base = prev.map(s => s.id === updated.id ? updated : s)
-
-      const diff =
-        ((updated.driveMins || 0) - (old?.driveMins || 0)) +
-        ((updated.stopMins  || 0) - (old?.stopMins  || 0))
-
-      if (!diff || !updated.time?.match(/(\d+):(\d+)\s*(AM|PM)/i)) return base
-
-      const atMins = parseTimeMinutes(updated.time)
-      return base.map(s => {
-        if (s.id === updated.id) return s
-        if (s.day === updated.day && parseTimeMinutes(s.time) > atMins) {
-          return applyTimeShift(s, diff)
-        }
-        if (s.day > updated.day) {
-          return applyTimeShift(s, diff)
-        }
-        return s
-      })
-    })
+    setStops(prev => prev.map(s => s.id === updated.id ? updated : s))
   }
 
   function removeStop(id) {
-    setStops(prev => {
-      const target = prev.find(s => s.id === id)
-      const filtered = prev.filter(s => s.id !== id)
-      const shift = target?.stopMins || 0
-      if (!shift || !target?.time?.match(/(\d+):(\d+)\s*(AM|PM)/i)) return filtered
-      const atMins = parseTimeMinutes(target.time)
-      return filtered.map(s => {
-        if (s.day === target.day && parseTimeMinutes(s.time) > atMins) {
-          return applyTimeShift(s, -shift)
-        }
-        if (s.day > target.day) {
-          return applyTimeShift(s, -shift)
-        }
-        return s
-      })
-    })
+    setStops(prev => prev.filter(s => s.id !== id))
   }
 
-  function addStop(stop, cascade = 0) {
-    setStops(prev => {
-      const added = [...prev, stop]
-      if (!cascade || cascade <= 0 || !stop.time?.match(/(\d+):(\d+)\s*(AM|PM)/i)) return added
-      const atMins = parseTimeMinutes(stop.time)
-      return added.map(s => {
-        if (s.id === stop.id) return s
-        if (s.day === stop.day && parseTimeMinutes(s.time) > atMins) {
-          return applyTimeShift(s, cascade)
-        }
-        if (s.day > stop.day) {
-          return applyTimeShift(s, cascade)
-        }
-        return s
-      })
-    })
+  function addStop(stop) {
+    setStops(prev => [...prev, stop])
   }
 
   function resetData() {
