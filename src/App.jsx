@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, createContext, useContext } from 'react'
 import { ref, set, onValue } from 'firebase/database'
 import { db } from './firebase'
 import {
@@ -36,7 +36,15 @@ const DAY_LABELS = {
   1: 'Day 1 · Thu May 14',
   2: 'Day 2 · Fri May 15',
   3: 'Day 3 · Sat May 16',
+  4: 'Day 4 · Sun May 17',
 }
+
+const MAX_DAY = 4
+
+// ─── Contexts ─────────────────────────────────────────────────────────────────
+
+const EditContext = createContext(false)
+const NotesContext = createContext({ notes: {}, updateNote: () => {} })
 
 // ─── Initial data ─────────────────────────────────────────────────────────────
 
@@ -316,6 +324,20 @@ function addMinutesToTime(timeStr, minutes) {
   return `${dh}:${nm.toString().padStart(2, '0')} ${nh >= 12 ? 'PM' : 'AM'}`
 }
 
+// Shifts a stop's time by shiftMinutes, crossing day boundaries when needed.
+function applyTimeShift(stop, shiftMinutes) {
+  const origMins = parseTimeMinutes(stop.time)
+  const totalMins = origMins + shiftMinutes
+  const dayDelta = Math.floor(totalMins / 1440)
+  const newMins = ((totalMins % 1440) + 1440) % 1440
+  const newDay = Math.min(Math.max(stop.day + dayDelta, 1), MAX_DAY)
+  const h = Math.floor(newMins / 60)
+  const m = newMins % 60
+  const dh = h % 12 === 0 ? 12 : h % 12
+  const newTime = `${dh}:${m.toString().padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`
+  return { ...stop, day: newDay, time: newTime }
+}
+
 function nextDriver(current) {
   const cycle = ['ezzy', 'kevin', 'henry', 'eduardo']
   const i = cycle.indexOf(current)
@@ -324,6 +346,131 @@ function nextDriver(current) {
 
 function uid() {
   return `stop-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+}
+
+// ─── PIN Modal ────────────────────────────────────────────────────────────────
+
+function PinModal({ onSuccess, onClose }) {
+  const [value, setValue] = useState('')
+  const [error, setError] = useState(false)
+  const inputRef = useRef(null)
+
+  useEffect(() => { inputRef.current?.focus() }, [])
+
+  function submit(e) {
+    e.preventDefault()
+    if (value === '1754') {
+      sessionStorage.setItem('pin_unlocked', '1')
+      onSuccess()
+    } else {
+      setError(true)
+      setValue('')
+      setTimeout(() => inputRef.current?.focus(), 0)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 no-print" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-xs p-6" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-lg">🔒</span>
+          <h3 className="font-semibold text-gray-800 text-base">Enter PIN to edit</h3>
+        </div>
+        <p className="text-xs text-gray-400 mb-4">Changes are locked. Enter the PIN to enable editing for this session.</p>
+        <form onSubmit={submit} className="space-y-3">
+          <input
+            ref={inputRef}
+            type="password"
+            inputMode="numeric"
+            maxLength={4}
+            placeholder="····"
+            value={value}
+            onChange={e => { setValue(e.target.value.replace(/\D/g, '')); setError(false) }}
+            className={`w-full border rounded-lg px-3 py-3 text-center text-2xl tracking-[0.5em] font-mono outline-none focus:ring-2 transition-colors ${
+              error
+                ? 'border-red-400 bg-red-50 focus:ring-red-200'
+                : 'border-gray-200 focus:ring-blue-200 focus:border-blue-400'
+            }`}
+          />
+          {error && <p className="text-xs text-red-500 text-center">Incorrect PIN. Try again.</p>}
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 border border-gray-200 rounded-lg py-2 text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+            <button type="submit" className="flex-1 bg-gray-900 text-white rounded-lg py-2 text-sm font-medium hover:bg-gray-700">Unlock</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ─── Notes Section ────────────────────────────────────────────────────────────
+
+function NotesSection({ stopId }) {
+  const { notes, updateNote } = useContext(NotesContext)
+  const noteText = notes[stopId] || ''
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(noteText)
+  const textareaRef = useRef(null)
+
+  useEffect(() => { setDraft(noteText) }, [noteText])
+  useEffect(() => { if (editing && textareaRef.current) textareaRef.current.focus() }, [editing])
+
+  function commit() {
+    setEditing(false)
+    if (draft.trim() !== noteText) updateNote(stopId, draft.trim())
+  }
+
+  if (!editing && !noteText) {
+    return (
+      <button
+        onClick={() => setEditing(true)}
+        className="mt-1.5 text-xs text-gray-300 hover:text-amber-500 transition-colors no-print flex items-center gap-1"
+      >
+        <span>📝</span> Add note
+      </button>
+    )
+  }
+
+  return (
+    <div className="mt-2 pt-2 border-t border-amber-100">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs font-semibold text-amber-600 flex items-center gap-1">
+          📝 Notes
+        </span>
+        {!editing && (
+          <button
+            onClick={() => { setDraft(noteText); setEditing(true) }}
+            className="no-print text-xs text-gray-300 hover:text-amber-500 transition-colors"
+            title="Edit note"
+          >
+            ✎
+          </button>
+        )}
+      </div>
+      {editing ? (
+        <textarea
+          ref={textareaRef}
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => {
+            if (e.key === 'Escape') { setDraft(noteText); setEditing(false) }
+          }}
+          placeholder="Add notes for this stop… (anyone can edit)"
+          rows={2}
+          className="w-full text-xs border border-amber-300 rounded-lg px-2 py-1.5 outline-none focus:ring-1 focus:ring-amber-200 resize-none bg-amber-50 placeholder-amber-300"
+        />
+      ) : (
+        <p
+          onClick={() => { setDraft(noteText); setEditing(true) }}
+          className="text-xs text-gray-600 cursor-text hover:bg-amber-50 rounded px-1 -mx-1 py-0.5 whitespace-pre-wrap transition-colors"
+          title="Click to edit note"
+        >
+          {noteText}
+        </p>
+      )}
+    </div>
+  )
 }
 
 // ─── Components ──────────────────────────────────────────────────────────────
@@ -349,7 +496,7 @@ function DriverBadge({ driver, onClick, type }) {
     <button
       onClick={onClick}
       title={onClick ? 'Click to change driver' : undefined}
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer border-0 transition-opacity hover:opacity-80"
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold border-0 transition-opacity hover:opacity-80 ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
       style={{ backgroundColor: color + '22', color }}
     >
       <DriverDot driver={driver} size={8} />
@@ -359,11 +506,12 @@ function DriverBadge({ driver, onClick, type }) {
 }
 
 function EditableField({ value, onChange, multiline, className, placeholder }) {
+  const canEdit = useContext(EditContext)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
-  const ref = useRef(null)
+  const fieldRef = useRef(null)
 
-  useEffect(() => { if (editing && ref.current) ref.current.focus() }, [editing])
+  useEffect(() => { if (editing && fieldRef.current) fieldRef.current.focus() }, [editing])
 
   function commit() {
     setEditing(false)
@@ -372,7 +520,7 @@ function EditableField({ value, onChange, multiline, className, placeholder }) {
 
   if (editing) {
     const shared = {
-      ref,
+      ref: fieldRef,
       value: draft,
       onChange: e => setDraft(e.target.value),
       onBlur: commit,
@@ -389,9 +537,9 @@ function EditableField({ value, onChange, multiline, className, placeholder }) {
 
   return (
     <span
-      onClick={() => { setDraft(value); setEditing(true) }}
-      title="Click to edit"
-      className={`cursor-text hover:bg-blue-50 rounded px-0.5 -mx-0.5 transition-colors ${className || ''}`}
+      onClick={() => { if (canEdit) { setDraft(value); setEditing(true) } }}
+      title={canEdit ? 'Click to edit' : undefined}
+      className={`rounded px-0.5 -mx-0.5 transition-colors ${canEdit ? 'cursor-text hover:bg-blue-50' : ''} ${className || ''}`}
     >
       {value || <span className="text-gray-400 italic">{placeholder}</span>}
     </span>
@@ -399,11 +547,12 @@ function EditableField({ value, onChange, multiline, className, placeholder }) {
 }
 
 function MapsLinkEditor({ mapsUrl, onChange }) {
+  const canEdit = useContext(EditContext)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(mapsUrl || '')
-  const ref = useRef(null)
+  const inputRef = useRef(null)
 
-  useEffect(() => { if (editing && ref.current) ref.current.focus() }, [editing])
+  useEffect(() => { if (editing && inputRef.current) inputRef.current.focus() }, [editing])
 
   function commit() {
     setEditing(false)
@@ -414,7 +563,7 @@ function MapsLinkEditor({ mapsUrl, onChange }) {
     return (
       <span className="inline-flex items-center gap-1 ml-1" onClick={e => e.stopPropagation()}>
         <input
-          ref={ref}
+          ref={inputRef}
           value={draft}
           onChange={e => setDraft(e.target.value)}
           onBlur={commit}
@@ -449,16 +598,20 @@ function MapsLinkEditor({ mapsUrl, onChange }) {
         >
           <MapPinIcon />
         </a>
-        <button
-          onClick={e => { e.stopPropagation(); setDraft(mapsUrl); setEditing(true) }}
-          className="no-print opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-gray-500 text-xs px-0.5"
-          title="Edit maps link"
-        >
-          ✎
-        </button>
+        {canEdit && (
+          <button
+            onClick={e => { e.stopPropagation(); setDraft(mapsUrl); setEditing(true) }}
+            className="no-print opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-gray-500 text-xs px-0.5"
+            title="Edit maps link"
+          >
+            ✎
+          </button>
+        )}
       </span>
     )
   }
+
+  if (!canEdit) return null
 
   return (
     <button
@@ -491,6 +644,7 @@ function MapPinPlusIcon() {
 }
 
 function TimeField({ value, onChange }) {
+  const canEdit = useContext(EditContext)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const inputRef = useRef(null)
@@ -526,9 +680,9 @@ function TimeField({ value, onChange }) {
 
   return (
     <span
-      onClick={startEdit}
-      title="Click to edit time"
-      className="cursor-pointer hover:bg-blue-50 rounded px-0.5 -mx-0.5 transition-colors text-xs font-mono text-gray-400"
+      onClick={() => { if (canEdit) startEdit() }}
+      title={canEdit ? 'Click to edit time' : undefined}
+      className={`rounded px-0.5 -mx-0.5 transition-colors text-xs font-mono text-gray-400 ${canEdit ? 'cursor-pointer hover:bg-blue-50' : ''}`}
     >
       {value || <span className="text-gray-300 italic">--:-- --</span>}
     </span>
@@ -536,6 +690,7 @@ function TimeField({ value, onChange }) {
 }
 
 function MinutesField({ value = 0, onChange }) {
+  const canEdit = useContext(EditContext)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(0)
   const inputRef = useRef(null)
@@ -569,9 +724,9 @@ function MinutesField({ value = 0, onChange }) {
 
   return (
     <span
-      onClick={() => { setDraft(value || 0); setEditing(true) }}
-      title="Click to edit"
-      className="cursor-pointer hover:bg-blue-50 rounded px-0.5 transition-colors text-xs font-mono text-gray-500"
+      onClick={() => { if (canEdit) { setDraft(value || 0); setEditing(true) } }}
+      title={canEdit ? 'Click to edit' : undefined}
+      className={`rounded px-0.5 transition-colors text-xs font-mono text-gray-500 ${canEdit ? 'cursor-pointer hover:bg-blue-50' : ''}`}
     >
       {value > 0 ? formatHours(value) : <span className="text-gray-300">—</span>}
     </span>
@@ -602,6 +757,7 @@ function DragPreviewCard({ stop }) {
 }
 
 function StopCard({ stop, onUpdate, onRemove }) {
+  const canEdit = useContext(EditContext)
   const isHandoff = stop.type === 'handoff'
   const isDrive   = stop.type === 'drive'
   const isSub     = stop.level === 'sub'
@@ -613,7 +769,7 @@ function StopCard({ stop, onUpdate, onRemove }) {
   })
 
   function cycleDriver() {
-    if (!isDrive) return
+    if (!isDrive || !canEdit) return
     onUpdate({ ...stop, driver: nextDriver(stop.driver) })
   }
 
@@ -637,21 +793,26 @@ function StopCard({ stop, onUpdate, onRemove }) {
         opacity: isDragging ? 0.35 : 1,
       }}
     >
-      {/* Drag handle */}
-      <button
-        {...listeners} {...attributes}
-        className="absolute top-2 right-9 opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing no-print touch-none"
-        title="Drag to move to another day"
-        tabIndex={-1}
-      >
-        <GripIcon />
-      </button>
+      {/* Drag handle — only when unlocked */}
+      {canEdit && (
+        <button
+          {...listeners} {...attributes}
+          className="absolute top-2 right-9 opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing no-print touch-none"
+          title="Drag to move to another day"
+          tabIndex={-1}
+        >
+          <GripIcon />
+        </button>
+      )}
 
-      <button
-        onClick={() => onRemove(stop.id)}
-        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 flex items-center justify-center rounded-full bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 text-xs no-print"
-        title="Remove stop"
-      >✕</button>
+      {/* Remove button — only when unlocked */}
+      {canEdit && (
+        <button
+          onClick={() => onRemove(stop.id)}
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 flex items-center justify-center rounded-full bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 text-xs no-print"
+          title="Remove stop"
+        >✕</button>
+      )}
 
       <div className="flex items-start gap-2.5">
         <div className="flex flex-col items-center mt-1 flex-shrink-0">
@@ -665,7 +826,7 @@ function StopCard({ stop, onUpdate, onRemove }) {
           {/* Time + badges */}
           <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
             <TimeField value={stop.time} onChange={v => onUpdate({ ...stop, time: v })} />
-            {isDrive && <DriverBadge driver={stop.driver} type={stop.type} onClick={cycleDriver} />}
+            {isDrive && <DriverBadge driver={stop.driver} type={stop.type} onClick={canEdit ? cycleDriver : undefined} />}
             {isHandoff && <DriverBadge driver={stop.driver} type="handoff" />}
             {stop.type === 'stop' && !isSub && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">📍 Stop</span>
@@ -709,7 +870,7 @@ function StopCard({ stop, onUpdate, onRemove }) {
                   <MinutesField value={stop.stopMins || 0} onChange={v => onUpdate({ ...stop, stopMins: v })} />
                 </>
               )}
-              {stop.type === 'stop' && (
+              {canEdit && stop.type === 'stop' && (
                 <button
                   onClick={() => onUpdate({ ...stop, level: isSub ? 'main' : 'sub' })}
                   className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-xs text-gray-300 hover:text-blue-500 border border-gray-200 hover:border-blue-300 rounded px-1.5 py-0.5 leading-none"
@@ -720,6 +881,9 @@ function StopCard({ stop, onUpdate, onRemove }) {
               )}
             </div>
           )}
+
+          {/* Notes — always visible, no PIN required */}
+          <NotesSection stopId={stop.id} />
         </div>
       </div>
     </div>
@@ -735,7 +899,6 @@ function AddStopModal({ day, onAdd, onClose }) {
   function submit(e) {
     e.preventDefault()
     if (!form.title.trim()) return
-    // Driver cards cascade by their drive time; all other stops cascade by stopMins
     const cascade = form.type === 'drive'
       ? (form.driveMins || 0) + (form.stopMins || 0)
       : (form.stopMins || 0)
@@ -752,7 +915,6 @@ function AddStopModal({ day, onAdd, onClose }) {
       <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
         <h3 className="font-semibold text-gray-800 mb-3 text-base">Add stop · {DAY_LABELS[day]}</h3>
 
-        {/* Level toggle */}
         <div className="flex rounded-lg overflow-hidden border border-gray-200 text-xs mb-3">
           {['main', 'sub'].map(lvl => (
             <button
@@ -819,7 +981,6 @@ function AddStopModal({ day, onAdd, onClose }) {
             </div>
           </div>
 
-          {/* Drive time — only for driver cards */}
           {form.type === 'drive' && (
             <div>
               <label className="text-xs text-gray-500 mb-1 block">Driving time (min)</label>
@@ -836,7 +997,6 @@ function AddStopModal({ day, onAdd, onClose }) {
             </div>
           )}
 
-          {/* Stop duration — for all types */}
           <div>
             <label className="text-xs text-gray-500 mb-1 block">
               {form.level === 'sub' ? 'Stop duration (affects arrival)' : 'Stay duration (min)'}
@@ -867,6 +1027,7 @@ function AddStopModal({ day, onAdd, onClose }) {
 }
 
 function DaySection({ day, stops, onUpdate, onRemove, onAdd }) {
+  const canEdit = useContext(EditContext)
   const [showAdd, setShowAdd] = useState(false)
   const { setNodeRef, isOver } = useDroppable({ id: `day-${day}` })
 
@@ -888,12 +1049,14 @@ function DaySection({ day, stops, onUpdate, onRemove, onAdd }) {
           <h2 className="text-lg sm:text-xl font-bold text-gray-900">{DAY_LABELS[day]}</h2>
           <div className="text-xs text-gray-400">{stops.length} stops</div>
         </div>
-        <button
-          onClick={() => setShowAdd(true)}
-          className="no-print flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 border border-gray-200 hover:border-gray-400 rounded-lg px-3 py-1.5 transition-colors"
-        >
-          <span className="text-base leading-none">+</span> Add stop
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => setShowAdd(true)}
+            className="no-print flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 border border-gray-200 hover:border-gray-400 rounded-lg px-3 py-1.5 transition-colors"
+          >
+            <span className="text-base leading-none">+</span> Add stop
+          </button>
+        )}
       </div>
 
       <div className="relative">
@@ -1000,7 +1163,10 @@ function DriverSummaryCards({ stops }) {
 
 export default function App() {
   const [stops, setStops] = useState(null)
+  const [notes, setNotes] = useState({})
   const [draggedStop, setDraggedStop] = useState(null)
+  const [pinUnlocked, setPinUnlocked] = useState(() => sessionStorage.getItem('pin_unlocked') === '1')
+  const [showPinModal, setShowPinModal] = useState(false)
   const skipSaveRef = useRef(false)
 
   const sensors = useSensors(
@@ -1008,12 +1174,13 @@ export default function App() {
   )
 
   function onDragStart({ active }) {
+    if (!pinUnlocked) return
     setDraggedStop(stops?.find(s => s.id === active.id) ?? null)
   }
 
   function onDragEnd({ active, over }) {
     setDraggedStop(null)
-    if (!over) return
+    if (!pinUnlocked || !over) return
     const overId = String(over.id)
     if (!overId.startsWith('day-')) return
     const targetDay = parseInt(overId.slice(4))
@@ -1023,12 +1190,22 @@ export default function App() {
     }
   }
 
+  // Subscribe to itinerary
   useEffect(() => {
     const dbRef = ref(db, 'itinerary')
     const unsub = onValue(dbRef, (snapshot) => {
       const raw = snapshot.val()
       skipSaveRef.current = true
       setStops(raw ? JSON.parse(raw.v) : INITIAL_STOPS)
+    })
+    return unsub
+  }, [])
+
+  // Subscribe to notes
+  useEffect(() => {
+    const dbRef = ref(db, 'notes')
+    const unsub = onValue(dbRef, (snapshot) => {
+      setNotes(snapshot.val() || {})
     })
     return unsub
   }, [])
@@ -1041,6 +1218,10 @@ export default function App() {
     }
     set(ref(db, 'itinerary'), { v: JSON.stringify(stops) })
   }, [stops])
+
+  function updateNote(stopId, text) {
+    set(ref(db, `notes/${stopId}`), text || null)
+  }
 
   function updateStop(updated) {
     setStops(prev => {
@@ -1057,10 +1238,10 @@ export default function App() {
       return base.map(s => {
         if (s.id === updated.id) return s
         if (s.day === updated.day && parseTimeMinutes(s.time) > atMins) {
-          return { ...s, time: addMinutesToTime(s.time, diff) }
+          return applyTimeShift(s, diff)
         }
         if (s.day > updated.day) {
-          return { ...s, time: addMinutesToTime(s.time, diff) }
+          return applyTimeShift(s, diff)
         }
         return s
       })
@@ -1071,16 +1252,15 @@ export default function App() {
     setStops(prev => {
       const target = prev.find(s => s.id === id)
       const filtered = prev.filter(s => s.id !== id)
-      // Only cascade back by the stop's own duration (driveMins handled via updateStop diffs)
       const shift = target?.stopMins || 0
       if (!shift || !target?.time?.match(/(\d+):(\d+)\s*(AM|PM)/i)) return filtered
       const atMins = parseTimeMinutes(target.time)
       return filtered.map(s => {
         if (s.day === target.day && parseTimeMinutes(s.time) > atMins) {
-          return { ...s, time: addMinutesToTime(s.time, -shift) }
+          return applyTimeShift(s, -shift)
         }
         if (s.day > target.day) {
-          return { ...s, time: addMinutesToTime(s.time, -shift) }
+          return applyTimeShift(s, -shift)
         }
         return s
       })
@@ -1095,10 +1275,10 @@ export default function App() {
       return added.map(s => {
         if (s.id === stop.id) return s
         if (s.day === stop.day && parseTimeMinutes(s.time) > atMins) {
-          return { ...s, time: addMinutesToTime(s.time, cascade) }
+          return applyTimeShift(s, cascade)
         }
         if (s.day > stop.day) {
-          return { ...s, time: addMinutesToTime(s.time, cascade) }
+          return applyTimeShift(s, cascade)
         }
         return s
       })
@@ -1111,6 +1291,11 @@ export default function App() {
     }
   }
 
+  function lock() {
+    sessionStorage.removeItem('pin_unlocked')
+    setPinUnlocked(false)
+  }
+
   if (stops === null) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -1120,63 +1305,97 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30 no-print">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-          <div>
-            <h1 className="text-base sm:text-lg font-bold text-gray-900 leading-tight">🚗 Road Trip 2026</h1>
-            <p className="text-xs text-gray-400">May 14–16 · NYC → Columbia University</p>
+    <EditContext.Provider value={pinUnlocked}>
+      <NotesContext.Provider value={{ notes, updateNote }}>
+        <div className="min-h-screen bg-gray-50">
+          {/* Header */}
+          <header className="bg-white border-b border-gray-200 sticky top-0 z-30 no-print">
+            <div className="max-w-2xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+              <div>
+                <h1 className="text-base sm:text-lg font-bold text-gray-900 leading-tight">🚗 Road Trip 2026</h1>
+                <p className="text-xs text-gray-400">May 14–17 · NYC → Columbia University</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Lock/unlock toggle */}
+                {pinUnlocked ? (
+                  <button
+                    onClick={lock}
+                    title="Click to lock editing"
+                    className="flex items-center gap-1.5 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-2.5 py-1.5 hover:bg-green-100 transition-colors font-medium"
+                  >
+                    🔓 Unlocked
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowPinModal(true)}
+                    title="Enter PIN to enable editing"
+                    className="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:bg-gray-100 transition-colors"
+                  >
+                    🔒 Locked
+                  </button>
+                )}
+
+                {pinUnlocked && (
+                  <button
+                    onClick={resetData}
+                    className="text-xs text-gray-400 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:border-gray-400 transition-colors"
+                  >
+                    Reset
+                  </button>
+                )}
+                <button
+                  onClick={() => window.print()}
+                  className="text-xs bg-gray-900 text-white rounded-lg px-3 py-1.5 hover:bg-gray-700 transition-colors font-medium"
+                >
+                  Export PDF
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* Print header */}
+          <div className="hidden print:block p-8 pb-4">
+            <h1 className="text-2xl font-bold text-gray-900">Road Trip 2026 · May 14–17</h1>
+            <p className="text-gray-500 text-sm">NYC → Columbia University, New York</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={resetData}
-              className="text-xs text-gray-400 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:border-gray-400 transition-colors"
-            >
-              Reset
-            </button>
-            <button
-              onClick={() => window.print()}
-              className="text-xs bg-gray-900 text-white rounded-lg px-3 py-1.5 hover:bg-gray-700 transition-colors font-medium"
-            >
-              Export PDF
-            </button>
-          </div>
+
+          <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
+            <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+              <RotationBar stops={stops} />
+
+              {[1, 2, 3, 4].map(day => (
+                <DaySection
+                  key={day}
+                  day={day}
+                  stops={stops.filter(s => s.day === day)}
+                  onUpdate={updateStop}
+                  onRemove={removeStop}
+                  onAdd={addStop}
+                />
+              ))}
+
+              <DragOverlay dropAnimation={null}>
+                {draggedStop ? <DragPreviewCard stop={draggedStop} /> : null}
+              </DragOverlay>
+            </DndContext>
+
+            <DriverSummaryCards stops={stops} />
+
+            <p className="text-center text-xs text-gray-300 pb-8 no-print">
+              {pinUnlocked
+                ? 'Editing unlocked · Click any field to edit · Hover a stop to drag it'
+                : 'View only · Click 🔒 to unlock editing · Anyone can add notes below stops'}
+            </p>
+          </main>
         </div>
-      </header>
 
-      {/* Print header */}
-      <div className="hidden print:block p-8 pb-4">
-        <h1 className="text-2xl font-bold text-gray-900">Road Trip 2026 · May 14–16</h1>
-        <p className="text-gray-500 text-sm">NYC → Columbia University, New York</p>
-      </div>
-
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
-        <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-          <RotationBar stops={stops} />
-
-          {[1, 2, 3].map(day => (
-            <DaySection
-              key={day}
-              day={day}
-              stops={stops.filter(s => s.day === day)}
-              onUpdate={updateStop}
-              onRemove={removeStop}
-              onAdd={addStop}
-            />
-          ))}
-
-          <DragOverlay dropAnimation={null}>
-            {draggedStop ? <DragPreviewCard stop={draggedStop} /> : null}
-          </DragOverlay>
-        </DndContext>
-
-        <DriverSummaryCards stops={stops} />
-
-        <p className="text-center text-xs text-gray-300 pb-8 no-print">
-          Edits auto-save · Click any field to edit · Hover a stop to drag it to another day
-        </p>
-      </main>
-    </div>
+        {showPinModal && (
+          <PinModal
+            onSuccess={() => { setPinUnlocked(true); setShowPinModal(false) }}
+            onClose={() => setShowPinModal(false)}
+          />
+        )}
+      </NotesContext.Provider>
+    </EditContext.Provider>
   )
 }
