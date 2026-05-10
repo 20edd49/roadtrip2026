@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { ref, set, onValue } from 'firebase/database'
 import { db } from './firebase'
+import {
+  DndContext, DragOverlay,
+  PointerSensor, useSensor, useSensors,
+  useDroppable, useDraggable,
+} from '@dnd-kit/core'
+import { CSS } from '@dnd-kit/utilities'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -279,6 +285,37 @@ function formatHours(minutes) {
   return `${h}h ${m}m`
 }
 
+function parseToHHMM(timeStr) {
+  const match = timeStr?.match(/(\d+):(\d+)\s*(AM|PM)/i)
+  if (!match) return ''
+  let [, h, m, period] = match
+  h = parseInt(h); m = parseInt(m)
+  if (period.toUpperCase() === 'PM' && h !== 12) h += 12
+  if (period.toUpperCase() === 'AM' && h === 12) h = 0
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+}
+
+function formatFromHHMM(hhmmStr) {
+  if (!hhmmStr) return ''
+  const [h, m] = hhmmStr.split(':').map(Number)
+  const dh = h % 12 === 0 ? 12 : h % 12
+  return `${dh}:${m.toString().padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`
+}
+
+function addMinutesToTime(timeStr, minutes) {
+  const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i)
+  if (!match) return timeStr
+  let [, h, m, period] = match
+  h = parseInt(h); m = parseInt(m)
+  if (period.toUpperCase() === 'PM' && h !== 12) h += 12
+  if (period.toUpperCase() === 'AM' && h === 12) h = 0
+  let total = ((h * 60 + m + minutes) % 1440 + 1440) % 1440
+  const nh = Math.floor(total / 60)
+  const nm = total % 60
+  const dh = nh % 12 === 0 ? 12 : nh % 12
+  return `${dh}:${nm.toString().padStart(2, '0')} ${nh >= 12 ? 'PM' : 'AM'}`
+}
+
 function nextDriver(current) {
   const cycle = ['ezzy', 'kevin', 'henry', 'eduardo']
   const i = cycle.indexOf(current)
@@ -453,10 +490,127 @@ function MapPinPlusIcon() {
   )
 }
 
+function TimeField({ value, onChange }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const inputRef = useRef(null)
+
+  useEffect(() => { if (editing && inputRef.current) inputRef.current.focus() }, [editing])
+
+  function startEdit() { setDraft(parseToHHMM(value)); setEditing(true) }
+
+  function commit() {
+    setEditing(false)
+    if (draft) {
+      const formatted = formatFromHHMM(draft)
+      if (formatted !== value) onChange(formatted)
+    }
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="time"
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => {
+          if (e.key === 'Enter') { e.preventDefault(); commit() }
+          if (e.key === 'Escape') setEditing(false)
+        }}
+        className="border border-blue-400 rounded px-1 text-xs font-mono outline-none focus:ring-2 focus:ring-blue-300 w-24"
+      />
+    )
+  }
+
+  return (
+    <span
+      onClick={startEdit}
+      title="Click to edit time"
+      className="cursor-pointer hover:bg-blue-50 rounded px-0.5 -mx-0.5 transition-colors text-xs font-mono text-gray-400"
+    >
+      {value || <span className="text-gray-300 italic">--:-- --</span>}
+    </span>
+  )
+}
+
+function MinutesField({ value = 0, onChange }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(0)
+  const inputRef = useRef(null)
+
+  useEffect(() => { if (editing && inputRef.current) inputRef.current.focus() }, [editing])
+
+  function commit() {
+    setEditing(false)
+    onChange(parseInt(draft) || 0)
+  }
+
+  if (editing) {
+    return (
+      <span className="inline-flex items-center gap-0.5">
+        <input
+          ref={inputRef}
+          type="number" min="0" step="5"
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => {
+            if (e.key === 'Enter') { e.preventDefault(); commit() }
+            if (e.key === 'Escape') setEditing(false)
+          }}
+          className="w-14 border border-blue-400 rounded px-1 py-0.5 text-xs font-mono outline-none focus:ring-1 focus:ring-blue-300"
+        />
+        <span className="text-xs text-gray-400">m</span>
+      </span>
+    )
+  }
+
+  return (
+    <span
+      onClick={() => { setDraft(value || 0); setEditing(true) }}
+      title="Click to edit"
+      className="cursor-pointer hover:bg-blue-50 rounded px-0.5 transition-colors text-xs font-mono text-gray-500"
+    >
+      {value > 0 ? formatHours(value) : <span className="text-gray-300">—</span>}
+    </span>
+  )
+}
+
+function GripIcon() {
+  return (
+    <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
+      <circle cx="3" cy="2.5" r="1.2"/><circle cx="7" cy="2.5" r="1.2"/>
+      <circle cx="3" cy="7"   r="1.2"/><circle cx="7" cy="7"   r="1.2"/>
+      <circle cx="3" cy="11.5" r="1.2"/><circle cx="7" cy="11.5" r="1.2"/>
+    </svg>
+  )
+}
+
+function DragPreviewCard({ stop }) {
+  const accentColor = stop.type === 'handoff' ? '#9CA3AF' : (DRIVER_COLORS[stop.driver] || '#9CA3AF')
+  return (
+    <div
+      className="bg-white rounded-lg px-3 py-2.5 shadow-2xl rotate-1 pointer-events-none"
+      style={{ borderLeft: `4px solid ${accentColor}`, width: 260, opacity: 0.95 }}
+    >
+      <div className="text-xs font-mono text-gray-400 mb-0.5">{stop.time}</div>
+      <div className="font-semibold text-gray-800 text-sm truncate">{stop.title}</div>
+    </div>
+  )
+}
+
 function StopCard({ stop, onUpdate, onRemove }) {
   const isHandoff = stop.type === 'handoff'
   const isDrive   = stop.type === 'drive'
+  const isSub     = stop.level === 'sub'
   const accentColor = isHandoff ? '#9CA3AF' : (DRIVER_COLORS[stop.driver] || '#9CA3AF')
+
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: stop.id,
+    data: { stop },
+  })
 
   function cycleDriver() {
     if (!isDrive) return
@@ -465,72 +619,107 @@ function StopCard({ stop, onUpdate, onRemove }) {
 
   const borderStyle = isHandoff
     ? '2px dashed #D1D5DB'
-    : `2px solid ${accentColor}22`
+    : isSub
+      ? `1px solid ${accentColor}33`
+      : `2px solid ${accentColor}22`
+
+  const estArrival = isDrive && (stop.driveMins > 0) && stop.time?.match(/\d+:\d+\s*(AM|PM)/i)
+    ? addMinutesToTime(stop.time, stop.driveMins)
+    : null
 
   return (
     <div
-      className="bg-white rounded-lg p-3 sm:p-4 relative group"
-      style={{ border: borderStyle, borderLeft: `4px solid ${accentColor}` }}
+      ref={setNodeRef}
+      className={`bg-white rounded-lg relative group transition-opacity ${isSub ? 'p-2 sm:p-2.5' : 'p-3 sm:p-4'}`}
+      style={{
+        border: borderStyle,
+        borderLeft: `${isSub ? 3 : 4}px solid ${accentColor}`,
+        opacity: isDragging ? 0.35 : 1,
+      }}
     >
-      {/* Remove button */}
+      {/* Drag handle */}
+      <button
+        {...listeners} {...attributes}
+        className="absolute top-2 right-9 opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing no-print touch-none"
+        title="Drag to move to another day"
+        tabIndex={-1}
+      >
+        <GripIcon />
+      </button>
+
       <button
         onClick={() => onRemove(stop.id)}
         className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 flex items-center justify-center rounded-full bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 text-xs no-print"
         title="Remove stop"
-      >
-        ✕
-      </button>
+      >✕</button>
 
-      <div className="flex items-start gap-3">
-        {/* Timeline dot */}
+      <div className="flex items-start gap-2.5">
         <div className="flex flex-col items-center mt-1 flex-shrink-0">
-          <div className="w-3 h-3 rounded-full border-2 border-white shadow" style={{ backgroundColor: accentColor }} />
+          <div
+            className={`rounded-full border-2 border-white shadow ${isSub ? 'w-2 h-2' : 'w-3 h-3'}`}
+            style={{ backgroundColor: accentColor }}
+          />
         </div>
 
         <div className="flex-1 min-w-0">
           {/* Time + badges */}
-          <div className="flex flex-wrap items-center gap-2 mb-1">
-            <span className="text-xs font-mono text-gray-400 flex-shrink-0">
-              <EditableField
-                value={stop.time}
-                onChange={v => onUpdate({ ...stop, time: v })}
-                className="text-xs font-mono"
-                placeholder="time"
-              />
-            </span>
-            {isDrive && (
-              <DriverBadge driver={stop.driver} type={stop.type} onClick={cycleDriver} />
-            )}
+          <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+            <TimeField value={stop.time} onChange={v => onUpdate({ ...stop, time: v })} />
+            {isDrive && <DriverBadge driver={stop.driver} type={stop.type} onClick={cycleDriver} />}
             {isHandoff && <DriverBadge driver={stop.driver} type="handoff" />}
-            {stop.type === 'stop' && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">
-                📍 Stop
-              </span>
+            {stop.type === 'stop' && !isSub && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">📍 Stop</span>
             )}
           </div>
 
-          {/* Title + maps link */}
-          <div className="font-semibold text-gray-800 text-sm sm:text-base mb-0.5 flex items-center flex-wrap gap-x-1">
-            <EditableField
-              value={stop.title}
-              onChange={v => onUpdate({ ...stop, title: v })}
-              placeholder="Add title"
-            />
-            <MapsLinkEditor
-              mapsUrl={stop.mapsUrl || ''}
-              onChange={url => onUpdate({ ...stop, mapsUrl: url })}
-            />
+          {/* Title + maps */}
+          <div className={`font-semibold text-gray-800 flex items-center flex-wrap gap-x-1 ${isSub ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'} mb-0.5`}>
+            <EditableField value={stop.title} onChange={v => onUpdate({ ...stop, title: v })} placeholder="Add title" />
+            <MapsLinkEditor mapsUrl={stop.mapsUrl || ''} onChange={url => onUpdate({ ...stop, mapsUrl: url })} />
           </div>
 
-          {/* Description */}
-          <div className="text-gray-500 text-xs sm:text-sm">
-            <EditableField
-              value={stop.description}
-              onChange={v => onUpdate({ ...stop, description: v })}
-              multiline
-              placeholder="Add description"
-            />
-          </div>
+          {/* Description — hidden on sub-stops */}
+          {!isSub && (
+            <div className="text-gray-500 text-xs sm:text-sm mb-1">
+              <EditableField value={stop.description} onChange={v => onUpdate({ ...stop, description: v })} multiline placeholder="Add description" />
+            </div>
+          )}
+
+          {/* Driver: drive time → computed arrival */}
+          {isDrive && (
+            <div className="flex items-center gap-1.5 mt-1 text-xs text-gray-500">
+              <span className="text-gray-400">drives for</span>
+              <MinutesField value={stop.driveMins || 0} onChange={v => onUpdate({ ...stop, driveMins: v })} />
+              {estArrival && <span className="text-gray-400 font-mono">· est. arrival {estArrival}</span>}
+            </div>
+          )}
+
+          {/* Non-driver: stay duration + level toggle */}
+          {!isDrive && (
+            <div className="flex items-center gap-1.5 mt-0.5 text-xs text-gray-400 no-print">
+              {isSub ? (
+                <>
+                  <span>+</span>
+                  <MinutesField value={stop.stopMins || 0} onChange={v => onUpdate({ ...stop, stopMins: v })} />
+                  <span className="text-gray-300 text-xs">to arrival</span>
+                </>
+              ) : (
+                <>
+                  <span>stay:</span>
+                  <MinutesField value={stop.stopMins || 0} onChange={v => onUpdate({ ...stop, stopMins: v })} />
+                </>
+              )}
+              {stop.type === 'stop' && (
+                <button
+                  onClick={() => onUpdate({ ...stop, level: isSub ? 'main' : 'sub' })}
+                  className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-xs text-gray-300 hover:text-blue-500 border border-gray-200 hover:border-blue-300 rounded px-1.5 py-0.5 leading-none"
+                  title={isSub ? 'Promote to main stop' : 'Make sub-stop'}
+                >
+                  {isSub ? '↑ main' : '↓ sub'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -538,25 +727,50 @@ function StopCard({ stop, onUpdate, onRemove }) {
 }
 
 function AddStopModal({ day, onAdd, onClose }) {
-  const [form, setForm] = useState({ time: '', title: '', description: '', driver: 'stop', type: 'stop', mapsUrl: '' })
+  const [form, setForm] = useState({
+    time: '', title: '', description: '', driver: 'stop', type: 'stop',
+    mapsUrl: '', level: 'main', driveMins: 0, stopMins: 0,
+  })
 
   function submit(e) {
     e.preventDefault()
     if (!form.title.trim()) return
-    onAdd({ ...form, id: uid(), day })
+    // Driver cards cascade by their drive time; all other stops cascade by stopMins
+    const cascade = form.type === 'drive'
+      ? (form.driveMins || 0) + (form.stopMins || 0)
+      : (form.stopMins || 0)
+    onAdd({ ...form, id: uid(), day }, cascade)
     onClose()
   }
+
+  const cascade = form.type === 'drive'
+    ? (form.driveMins || 0) + (form.stopMins || 0)
+    : (form.stopMins || 0)
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 no-print" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
-        <h3 className="font-semibold text-gray-800 mb-4 text-base">Add stop to {DAY_LABELS[day]}</h3>
+        <h3 className="font-semibold text-gray-800 mb-3 text-base">Add stop · {DAY_LABELS[day]}</h3>
+
+        {/* Level toggle */}
+        <div className="flex rounded-lg overflow-hidden border border-gray-200 text-xs mb-3">
+          {['main', 'sub'].map(lvl => (
+            <button
+              key={lvl} type="button"
+              onClick={() => setForm(f => ({ ...f, level: lvl }))}
+              className={`flex-1 py-2 font-medium transition-colors ${form.level === lvl ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+            >
+              {lvl === 'main' ? '● Main stop' : '· Sub-stop'}
+            </button>
+          ))}
+        </div>
+
         <form onSubmit={submit} className="space-y-3">
           <input
+            type="time"
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
-            placeholder="Time (e.g. 3:00 PM)"
-            value={form.time}
-            onChange={e => setForm(f => ({ ...f, time: e.target.value }))}
+            value={parseToHHMM(form.time)}
+            onChange={e => setForm(f => ({ ...f, time: formatFromHHMM(e.target.value) }))}
           />
           <input
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
@@ -565,13 +779,15 @@ function AddStopModal({ day, onAdd, onClose }) {
             onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
             required
           />
-          <textarea
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 resize-none"
-            placeholder="Description"
-            rows={2}
-            value={form.description}
-            onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-          />
+          {form.level === 'main' && (
+            <textarea
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 resize-none"
+              placeholder="Description"
+              rows={2}
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+            />
+          )}
           <input
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
             placeholder="Google Maps URL (optional)"
@@ -602,9 +818,47 @@ function AddStopModal({ day, onAdd, onClose }) {
               </select>
             </div>
           </div>
+
+          {/* Drive time — only for driver cards */}
+          {form.type === 'drive' && (
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Driving time (min)</label>
+              <div className="relative">
+                <input
+                  type="number" min="0" step="5"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 pr-10 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+                  placeholder="0"
+                  value={form.driveMins || ''}
+                  onChange={e => setForm(f => ({ ...f, driveMins: parseInt(e.target.value) || 0 }))}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">min</span>
+              </div>
+            </div>
+          )}
+
+          {/* Stop duration — for all types */}
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">
+              {form.level === 'sub' ? 'Stop duration (affects arrival)' : 'Stay duration (min)'}
+            </label>
+            <div className="relative">
+              <input
+                type="number" min="0" step="5"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 pr-10 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+                placeholder="0"
+                value={form.stopMins || ''}
+                onChange={e => setForm(f => ({ ...f, stopMins: parseInt(e.target.value) || 0 }))}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">min</span>
+            </div>
+          </div>
+
+          {cascade > 0 && (
+            <p className="text-xs text-amber-600">Later stops will shift +{formatHours(cascade)}</p>
+          )}
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-200 rounded-lg py-2 text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
-            <button type="submit" className="flex-1 bg-gray-900 text-white rounded-lg py-2 text-sm font-medium hover:bg-gray-700">Add Stop</button>
+            <button type="submit" className="flex-1 bg-gray-900 text-white rounded-lg py-2 text-sm font-medium hover:bg-gray-700">Add</button>
           </div>
         </form>
       </div>
@@ -614,6 +868,8 @@ function AddStopModal({ day, onAdd, onClose }) {
 
 function DaySection({ day, stops, onUpdate, onRemove, onAdd }) {
   const [showAdd, setShowAdd] = useState(false)
+  const { setNodeRef, isOver } = useDroppable({ id: `day-${day}` })
+
   const sorted = [...stops].sort((a, b) => {
     const am = parseTimeMinutes(a.time)
     const bm = parseTimeMinutes(b.time)
@@ -622,7 +878,11 @@ function DaySection({ day, stops, onUpdate, onRemove, onAdd }) {
   })
 
   return (
-    <div className="day-section mb-8">
+    <div
+      ref={setNodeRef}
+      className={`day-section mb-8 rounded-xl transition-colors duration-150 ${isOver ? 'bg-blue-50 ring-2 ring-blue-200 ring-inset' : ''}`}
+      style={{ padding: isOver ? '12px' : undefined }}
+    >
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-gray-900">{DAY_LABELS[day]}</h2>
@@ -638,9 +898,11 @@ function DaySection({ day, stops, onUpdate, onRemove, onAdd }) {
 
       <div className="relative">
         <div className="absolute left-[22px] top-4 bottom-4 w-px bg-gray-100" />
-        <div className="space-y-3">
+        <div className="space-y-2">
           {sorted.map(stop => (
-            <StopCard key={stop.id} stop={stop} onUpdate={onUpdate} onRemove={onRemove} />
+            <div key={stop.id} className={stop.level === 'sub' ? 'ml-7 sm:ml-9' : ''}>
+              <StopCard stop={stop} onUpdate={onUpdate} onRemove={onRemove} />
+            </div>
           ))}
         </div>
       </div>
@@ -738,7 +1000,28 @@ function DriverSummaryCards({ stops }) {
 
 export default function App() {
   const [stops, setStops] = useState(null)
+  const [draggedStop, setDraggedStop] = useState(null)
   const skipSaveRef = useRef(false)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  )
+
+  function onDragStart({ active }) {
+    setDraggedStop(stops?.find(s => s.id === active.id) ?? null)
+  }
+
+  function onDragEnd({ active, over }) {
+    setDraggedStop(null)
+    if (!over) return
+    const overId = String(over.id)
+    if (!overId.startsWith('day-')) return
+    const targetDay = parseInt(overId.slice(4))
+    const stop = stops?.find(s => s.id === active.id)
+    if (stop && stop.day !== targetDay) {
+      updateStop({ ...stop, day: targetDay })
+    }
+  }
 
   useEffect(() => {
     const dbRef = ref(db, 'itinerary')
@@ -760,15 +1043,66 @@ export default function App() {
   }, [stops])
 
   function updateStop(updated) {
-    setStops(prev => prev.map(s => s.id === updated.id ? updated : s))
+    setStops(prev => {
+      const old = prev.find(s => s.id === updated.id)
+      const base = prev.map(s => s.id === updated.id ? updated : s)
+
+      const diff =
+        ((updated.driveMins || 0) - (old?.driveMins || 0)) +
+        ((updated.stopMins  || 0) - (old?.stopMins  || 0))
+
+      if (!diff || !updated.time?.match(/(\d+):(\d+)\s*(AM|PM)/i)) return base
+
+      const atMins = parseTimeMinutes(updated.time)
+      return base.map(s => {
+        if (s.id === updated.id) return s
+        if (s.day === updated.day && parseTimeMinutes(s.time) > atMins) {
+          return { ...s, time: addMinutesToTime(s.time, diff) }
+        }
+        if (s.day > updated.day) {
+          return { ...s, time: addMinutesToTime(s.time, diff) }
+        }
+        return s
+      })
+    })
   }
 
   function removeStop(id) {
-    setStops(prev => prev.filter(s => s.id !== id))
+    setStops(prev => {
+      const target = prev.find(s => s.id === id)
+      const filtered = prev.filter(s => s.id !== id)
+      // Only cascade back by the stop's own duration (driveMins handled via updateStop diffs)
+      const shift = target?.stopMins || 0
+      if (!shift || !target?.time?.match(/(\d+):(\d+)\s*(AM|PM)/i)) return filtered
+      const atMins = parseTimeMinutes(target.time)
+      return filtered.map(s => {
+        if (s.day === target.day && parseTimeMinutes(s.time) > atMins) {
+          return { ...s, time: addMinutesToTime(s.time, -shift) }
+        }
+        if (s.day > target.day) {
+          return { ...s, time: addMinutesToTime(s.time, -shift) }
+        }
+        return s
+      })
+    })
   }
 
-  function addStop(stop) {
-    setStops(prev => [...prev, stop])
+  function addStop(stop, cascade = 0) {
+    setStops(prev => {
+      const added = [...prev, stop]
+      if (!cascade || cascade <= 0 || !stop.time?.match(/(\d+):(\d+)\s*(AM|PM)/i)) return added
+      const atMins = parseTimeMinutes(stop.time)
+      return added.map(s => {
+        if (s.id === stop.id) return s
+        if (s.day === stop.day && parseTimeMinutes(s.time) > atMins) {
+          return { ...s, time: addMinutesToTime(s.time, cascade) }
+        }
+        if (s.day > stop.day) {
+          return { ...s, time: addMinutesToTime(s.time, cascade) }
+        }
+        return s
+      })
+    })
   }
 
   function resetData() {
@@ -818,23 +1152,29 @@ export default function App() {
       </div>
 
       <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
-        <RotationBar stops={stops} />
+        <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+          <RotationBar stops={stops} />
 
-        {[1, 2, 3].map(day => (
-          <DaySection
-            key={day}
-            day={day}
-            stops={stops.filter(s => s.day === day)}
-            onUpdate={updateStop}
-            onRemove={removeStop}
-            onAdd={addStop}
-          />
-        ))}
+          {[1, 2, 3].map(day => (
+            <DaySection
+              key={day}
+              day={day}
+              stops={stops.filter(s => s.day === day)}
+              onUpdate={updateStop}
+              onRemove={removeStop}
+              onAdd={addStop}
+            />
+          ))}
+
+          <DragOverlay dropAnimation={null}>
+            {draggedStop ? <DragPreviewCard stop={draggedStop} /> : null}
+          </DragOverlay>
+        </DndContext>
 
         <DriverSummaryCards stops={stops} />
 
         <p className="text-center text-xs text-gray-300 pb-8 no-print">
-          Edits auto-save · Click any field to edit · Click driver badge to reassign · Hover a stop to add a maps link
+          Edits auto-save · Click any field to edit · Hover a stop to drag it to another day
         </p>
       </main>
     </div>
