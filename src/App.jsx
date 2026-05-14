@@ -1573,6 +1573,136 @@ function LiveTrackerTab({ stops, trackerChecked, trackerOffsets, onCheck, onDela
   )
 }
 
+// ─── Gallery Tab ─────────────────────────────────────────────────────────────
+
+const driveImg = (id, w = 1600) => `https://drive.google.com/thumbnail?id=${id}&sz=w${w}`
+
+function GalleryTab({ images, loading, error }) {
+  const [idx, setIdx] = useState(0)
+  const [imgLoaded, setImgLoaded] = useState(false)
+  const total = images.length
+
+  useEffect(() => { setImgLoaded(false) }, [idx])
+
+  useEffect(() => {
+    if (total === 0) return
+    function onKey(e) {
+      if (e.key === 'ArrowLeft')  setIdx(i => (i - 1 + total) % total)
+      if (e.key === 'ArrowRight') setIdx(i => (i + 1) % total)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [total])
+
+  if (!import.meta.env.VITE_GOOGLE_DRIVE_API_KEY) {
+    return (
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-16 text-center">
+        <p className="text-5xl mb-4">📸</p>
+        <p className="text-gray-700 font-semibold mb-1">Gallery not configured</p>
+        <p className="text-sm text-gray-400">Add <code className="bg-gray-100 px-1 rounded">VITE_GOOGLE_DRIVE_API_KEY</code> and <code className="bg-gray-100 px-1 rounded">VITE_GOOGLE_DRIVE_FOLDER_ID</code> to your <code className="bg-gray-100 px-1 rounded">.env</code> file.</p>
+      </main>
+    )
+  }
+
+  if (loading) {
+    return (
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-16 text-center">
+        <div className="bg-gray-900 rounded-2xl h-72 animate-pulse mb-4" />
+        <p className="text-gray-400 text-sm">Loading photos…</p>
+      </main>
+    )
+  }
+
+  if (error) {
+    return (
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-16 text-center">
+        <p className="text-5xl mb-4">⚠️</p>
+        <p className="text-red-500 font-semibold text-sm">Could not load photos</p>
+        <p className="text-xs text-gray-400 mt-1">{error}</p>
+      </main>
+    )
+  }
+
+  if (total === 0) {
+    return (
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-16 text-center">
+        <p className="text-5xl mb-4">📂</p>
+        <p className="text-gray-500 text-sm">No photos in the Drive folder yet.</p>
+        <p className="text-xs text-gray-400 mt-1">Add images to your shared Drive folder and reload.</p>
+      </main>
+    )
+  }
+
+  const current = images[idx]
+
+  return (
+    <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
+      {/* Hero slideshow */}
+      <div
+        className="relative bg-gray-900 rounded-2xl overflow-hidden flex items-center justify-center"
+        style={{ minHeight: 320 }}
+      >
+        {/* Loading skeleton */}
+        {!imgLoaded && (
+          <div className="absolute inset-0 bg-gray-800 animate-pulse" />
+        )}
+
+        <img
+          key={current.id}
+          src={driveImg(current.id, 1600)}
+          alt={current.name}
+          onLoad={() => setImgLoaded(true)}
+          className={`w-full object-contain max-h-[70vh] transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+        />
+
+        {/* Prev */}
+        <button
+          onClick={() => setIdx(i => (i - 1 + total) % total)}
+          className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center transition-colors text-2xl font-light select-none"
+          aria-label="Previous photo"
+        >‹</button>
+
+        {/* Next */}
+        <button
+          onClick={() => setIdx(i => (i + 1) % total)}
+          className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center transition-colors text-2xl font-light select-none"
+          aria-label="Next photo"
+        >›</button>
+
+        {/* Counter */}
+        <div className="absolute top-3 right-3 bg-black/50 text-white text-xs font-mono px-2.5 py-1 rounded-full select-none">
+          {idx + 1} / {total}
+        </div>
+      </div>
+
+      {/* Filename */}
+      <p className="text-center text-xs text-gray-400 mt-2.5 truncate px-8">
+        {current.name.replace(/\.[^.]+$/, '')}
+      </p>
+
+      {/* Dot indicators */}
+      <div className="flex justify-center gap-1.5 mt-3 flex-wrap px-4">
+        {images.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setIdx(i)}
+            className={`rounded-full transition-all duration-200 ${
+              i === idx
+                ? 'w-4 h-2 bg-gray-700'
+                : 'w-2 h-2 bg-gray-300 hover:bg-gray-500'
+            }`}
+            aria-label={`Photo ${i + 1}`}
+          />
+        ))}
+      </div>
+
+      <p className="text-center text-xs text-gray-300 mt-4 pb-8">
+        ← → arrow keys · click dots to jump
+      </p>
+    </main>
+  )
+}
+
 // ─── Main App ────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -1585,6 +1715,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('itinerary')
   const [trackerChecked, setTrackerChecked] = useState({})
   const [trackerOffsets, setTrackerOffsets] = useState({})
+  const [galleryImages, setGalleryImages] = useState([])
+  const [galleryLoading, setGalleryLoading] = useState(false)
+  const [galleryError, setGalleryError] = useState(null)
   const skipSaveRef = useRef(false)
 
   const sensors = useSensors(
@@ -1635,6 +1768,19 @@ export default function App() {
       setGeneralNote(snapshot.val() || '')
     })
     return unsub
+  }, [])
+
+  // Fetch gallery images from Google Drive on mount
+  useEffect(() => {
+    const apiKey = import.meta.env.VITE_GOOGLE_DRIVE_API_KEY
+    const folderId = import.meta.env.VITE_GOOGLE_DRIVE_FOLDER_ID
+    if (!apiKey || !folderId) return
+    setGalleryLoading(true)
+    const q = encodeURIComponent(`'${folderId}' in parents and mimeType contains 'image/' and trashed=false`)
+    fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=100&orderBy=createdTime&key=${apiKey}`)
+      .then(r => r.json())
+      .then(data => { setGalleryImages(data.files || []); setGalleryLoading(false) })
+      .catch(err => { setGalleryError(err.message); setGalleryLoading(false) })
   }, [])
 
   // Subscribe to tracker state (checked + offsets)
@@ -1810,6 +1956,16 @@ export default function App() {
                   <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
                 )}
               </button>
+              <button
+                onClick={() => setActiveTab('gallery')}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'gallery'
+                    ? 'border-purple-500 text-gray-900'
+                    : 'border-transparent text-gray-400 hover:text-gray-700'
+                }`}
+              >
+                📸 Gallery
+              </button>
             </div>
           </header>
 
@@ -1851,6 +2007,15 @@ export default function App() {
                   : 'View only · Click 🔒 to unlock editing · Anyone can add notes below stops'}
               </p>
             </main>
+          )}
+
+          {/* Tab: Gallery */}
+          {activeTab === 'gallery' && (
+            <GalleryTab
+              images={galleryImages}
+              loading={galleryLoading}
+              error={galleryError}
+            />
           )}
 
           {/* Tab: Live Tracker */}
