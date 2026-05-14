@@ -385,6 +385,63 @@ function PinModal({ onSuccess, onClose }) {
   )
 }
 
+// ─── General Notes Section ───────────────────────────────────────────────────
+
+function GeneralNotesSection({ note, onUpdate }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(note)
+  const textareaRef = useRef(null)
+
+  useEffect(() => { setDraft(note) }, [note])
+  useEffect(() => { if (editing && textareaRef.current) textareaRef.current.focus() }, [editing])
+
+  function commit() {
+    setEditing(false)
+    if (draft.trim() !== note) onUpdate(draft.trim())
+  }
+
+  return (
+    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-semibold text-amber-700 flex items-center gap-1.5">
+          📋 Trip Notes
+        </span>
+        {!editing && (
+          <button
+            onClick={() => { setDraft(note); setEditing(true) }}
+            className="no-print text-xs text-gray-300 hover:text-amber-500 transition-colors"
+            title="Edit notes"
+          >
+            ✎
+          </button>
+        )}
+      </div>
+      {editing ? (
+        <textarea
+          ref={textareaRef}
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => {
+            if (e.key === 'Escape') { setDraft(note); setEditing(false) }
+          }}
+          placeholder="General trip notes… anyone can edit"
+          rows={3}
+          className="w-full text-sm border border-amber-300 rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-amber-200 resize-none bg-white placeholder-amber-300"
+        />
+      ) : (
+        <p
+          onClick={() => { setDraft(note); setEditing(true) }}
+          className={`text-sm cursor-text hover:bg-amber-100 rounded px-1 -mx-1 py-0.5 whitespace-pre-wrap transition-colors ${note ? 'text-gray-700' : 'text-amber-300 italic'}`}
+          title="Click to edit"
+        >
+          {note || 'Click to add general trip notes…'}
+        </p>
+      )}
+    </div>
+  )
+}
+
 // ─── Notes Section ────────────────────────────────────────────────────────────
 
 function NotesSection({ stopId }) {
@@ -1136,6 +1193,7 @@ function DriverSummaryCards({ stops }) {
 export default function App() {
   const [stops, setStops] = useState(null)
   const [notes, setNotes] = useState({})
+  const [generalNote, setGeneralNote] = useState('')
   const [draggedStop, setDraggedStop] = useState(null)
   const [pinUnlocked, setPinUnlocked] = useState(() => sessionStorage.getItem('pin_unlocked') === '1')
   const [showPinModal, setShowPinModal] = useState(false)
@@ -1182,6 +1240,15 @@ export default function App() {
     return unsub
   }, [])
 
+  // Subscribe to general note
+  useEffect(() => {
+    const dbRef = ref(db, 'generalNote')
+    const unsub = onValue(dbRef, (snapshot) => {
+      setGeneralNote(snapshot.val() || '')
+    })
+    return unsub
+  }, [])
+
   useEffect(() => {
     if (stops === null) return
     if (skipSaveRef.current) {
@@ -1193,6 +1260,10 @@ export default function App() {
 
   function updateNote(stopId, text) {
     set(ref(db, `notes/${stopId}`), text || null)
+  }
+
+  function updateGeneralNote(text) {
+    set(ref(db, 'generalNote'), text || null)
   }
 
   function updateStop(updated) {
@@ -1282,6 +1353,8 @@ export default function App() {
           </div>
 
           <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
+            <GeneralNotesSection note={generalNote} onUpdate={updateGeneralNote} />
+
             <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
               <RotationBar stops={stops} />
 
