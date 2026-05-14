@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   * { box-sizing: border-box; }
   body {
@@ -8,6 +10,7 @@
     -webkit-font-smoothing: antialiased;
     background: #f8f8f8;
   }
+  html.dark body { background: #111827; }
 }
 
 @media print {

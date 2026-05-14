@@ -379,10 +379,10 @@ function PinModal({ onSuccess, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 no-print" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-xs p-6" onClick={e => e.stopPropagation()}>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-xs p-6" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-1">
           <span className="text-lg">🔒</span>
-          <h3 className="font-semibold text-gray-800 text-base">Enter PIN to edit</h3>
+          <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-base">Enter PIN to edit</h3>
         </div>
         <p className="text-xs text-gray-400 mb-4">Changes are locked. Enter the PIN to enable editing for this session.</p>
         <form onSubmit={submit} className="space-y-3">
@@ -394,16 +394,16 @@ function PinModal({ onSuccess, onClose }) {
             placeholder="····"
             value={value}
             onChange={e => { setValue(e.target.value.replace(/\D/g, '')); setError(false) }}
-            className={`w-full border rounded-lg px-3 py-3 text-center text-2xl tracking-[0.5em] font-mono outline-none focus:ring-2 transition-colors ${
+            className={`w-full border rounded-lg px-3 py-3 text-center text-2xl tracking-[0.5em] font-mono outline-none focus:ring-2 transition-colors dark:bg-gray-700 dark:text-gray-100 ${
               error
-                ? 'border-red-400 bg-red-50 focus:ring-red-200'
-                : 'border-gray-200 focus:ring-blue-200 focus:border-blue-400'
+                ? 'border-red-400 bg-red-50 focus:ring-red-200 dark:bg-red-900/30 dark:border-red-700'
+                : 'border-gray-200 dark:border-gray-600 focus:ring-blue-200 focus:border-blue-400'
             }`}
           />
-          {error && <p className="text-xs text-red-500 text-center">Incorrect PIN. Try again.</p>}
+          {error && <p className="text-xs text-red-500 dark:text-red-400 text-center">Incorrect PIN. Try again.</p>}
           <div className="flex gap-2 pt-1">
-            <button type="button" onClick={onClose} className="flex-1 border border-gray-200 rounded-lg py-2 text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
-            <button type="submit" className="flex-1 bg-gray-900 text-white rounded-lg py-2 text-sm font-medium hover:bg-gray-700">Unlock</button>
+            <button type="button" onClick={onClose} className="flex-1 border border-gray-200 dark:border-gray-600 rounded-lg py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">Cancel</button>
+            <button type="submit" className="flex-1 bg-gray-900 dark:bg-gray-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-gray-700 dark:hover:bg-gray-500">Unlock</button>
           </div>
         </form>
       </div>
@@ -427,15 +427,15 @@ function GeneralNotesSection({ note, onUpdate }) {
   }
 
   return (
-    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-6">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-semibold text-amber-700 flex items-center gap-1.5">
+        <span className="text-sm font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
           📋 Trip Notes
         </span>
         {!editing && (
           <button
             onClick={() => { setDraft(note); setEditing(true) }}
-            className="no-print text-xs text-gray-300 hover:text-amber-500 transition-colors"
+            className="no-print text-xs text-gray-300 dark:text-gray-600 hover:text-amber-500 transition-colors"
             title="Edit notes"
           >
             ✎
@@ -453,12 +453,12 @@ function GeneralNotesSection({ note, onUpdate }) {
           }}
           placeholder="General trip notes… anyone can edit"
           rows={3}
-          className="w-full text-sm border border-amber-300 rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-amber-200 resize-none bg-white placeholder-amber-300"
+          className="w-full text-sm border border-amber-300 dark:border-amber-700 rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-amber-200 resize-none bg-white dark:bg-gray-700 dark:text-gray-200 placeholder-amber-300"
         />
       ) : (
         <p
           onClick={() => { setDraft(note); setEditing(true) }}
-          className={`text-sm cursor-text hover:bg-amber-100 rounded px-1 -mx-1 py-0.5 whitespace-pre-wrap transition-colors ${note ? 'text-gray-700' : 'text-amber-300 italic'}`}
+          className={`text-sm cursor-text hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded px-1 -mx-1 py-0.5 whitespace-pre-wrap transition-colors ${note ? 'text-gray-700 dark:text-gray-300' : 'text-amber-300 italic'}`}
           title="Click to edit"
         >
           {note || 'Click to add general trip notes…'}
@@ -497,15 +497,15 @@ function NotesSection({ stopId }) {
   }
 
   return (
-    <div className="mt-2 pt-2 border-t border-amber-100">
+    <div className="mt-2 pt-2 border-t border-amber-100 dark:border-amber-900">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-xs font-semibold text-amber-600 flex items-center gap-1">
+        <span className="text-xs font-semibold text-amber-600 dark:text-amber-500 flex items-center gap-1">
           📝 Notes
         </span>
         {!editing && (
           <button
             onClick={() => { setDraft(noteText); setEditing(true) }}
-            className="no-print text-xs text-gray-300 hover:text-amber-500 transition-colors"
+            className="no-print text-xs text-gray-300 dark:text-gray-600 hover:text-amber-500 transition-colors"
             title="Edit note"
           >
             ✎
@@ -523,12 +523,12 @@ function NotesSection({ stopId }) {
           }}
           placeholder="Add notes for this stop… (anyone can edit)"
           rows={2}
-          className="w-full text-xs border border-amber-300 rounded-lg px-2 py-1.5 outline-none focus:ring-1 focus:ring-amber-200 resize-none bg-amber-50 placeholder-amber-300"
+          className="w-full text-xs border border-amber-300 dark:border-amber-700 rounded-lg px-2 py-1.5 outline-none focus:ring-1 focus:ring-amber-200 resize-none bg-amber-50 dark:bg-gray-700 dark:text-gray-200 placeholder-amber-300"
         />
       ) : (
         <p
           onClick={() => { setDraft(noteText); setEditing(true) }}
-          className="text-xs text-gray-600 cursor-text hover:bg-amber-50 rounded px-1 -mx-1 py-0.5 whitespace-pre-wrap transition-colors"
+          className="text-xs text-gray-600 dark:text-gray-400 cursor-text hover:bg-amber-50 dark:hover:bg-gray-700 rounded px-1 -mx-1 py-0.5 whitespace-pre-wrap transition-colors"
           title="Click to edit note"
         >
           {noteText}
@@ -550,7 +550,7 @@ function DriverDot({ driver, size = 10 }) {
 function DriverBadge({ driver, onClick, type }) {
   if (type === 'handoff') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border border-dashed border-gray-400 text-gray-500 bg-white">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border border-dashed border-gray-400 dark:border-gray-600 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-700">
         ⛽ Handoff
       </span>
     )
@@ -593,7 +593,7 @@ function EditableField({ value, onChange, multiline, className, placeholder }) {
         if (e.key === 'Enter' && !multiline) { e.preventDefault(); commit() }
         if (e.key === 'Escape') { setDraft(value); setEditing(false) }
       },
-      className: `w-full bg-white border border-blue-400 rounded px-1 outline-none focus:ring-2 focus:ring-blue-300 text-sm ${className || ''}`,
+      className: `w-full bg-white dark:bg-gray-700 dark:text-gray-100 border border-blue-400 rounded px-1 outline-none focus:ring-2 focus:ring-blue-300 text-sm ${className || ''}`,
     }
     return multiline
       ? <textarea {...shared} rows={2} style={{ resize: 'none' }} />
@@ -604,7 +604,7 @@ function EditableField({ value, onChange, multiline, className, placeholder }) {
     <span
       onClick={() => { if (canEdit) { setDraft(value); setEditing(true) } }}
       title={canEdit ? 'Click to edit' : undefined}
-      className={`rounded px-0.5 -mx-0.5 transition-colors ${canEdit ? 'cursor-text hover:bg-blue-50' : ''} ${className || ''}`}
+      className={`rounded px-0.5 -mx-0.5 transition-colors ${canEdit ? 'cursor-text hover:bg-blue-50 dark:hover:bg-blue-900/20' : ''} ${className || ''}`}
     >
       {value || <span className="text-gray-400 italic">{placeholder}</span>}
     </span>
@@ -738,7 +738,7 @@ function TimeField({ value, onChange }) {
           if (e.key === 'Enter') { e.preventDefault(); commit() }
           if (e.key === 'Escape') setEditing(false)
         }}
-        className="border border-blue-400 rounded px-1 text-xs font-mono outline-none focus:ring-2 focus:ring-blue-300 w-24"
+        className="border border-blue-400 rounded px-1 text-xs font-mono outline-none focus:ring-2 focus:ring-blue-300 w-24 dark:bg-gray-700 dark:text-gray-100"
       />
     )
   }
@@ -747,7 +747,7 @@ function TimeField({ value, onChange }) {
     <span
       onClick={() => { if (canEdit) startEdit() }}
       title={canEdit ? 'Click to edit time' : undefined}
-      className={`rounded px-0.5 -mx-0.5 transition-colors text-xs font-mono text-gray-400 ${canEdit ? 'cursor-pointer hover:bg-blue-50' : ''}`}
+      className={`rounded px-0.5 -mx-0.5 transition-colors text-xs font-mono text-gray-400 ${canEdit ? 'cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20' : ''}`}
     >
       {value || <span className="text-gray-300 italic">--:-- --</span>}
     </span>
@@ -812,11 +812,11 @@ function DragPreviewCard({ stop }) {
   const accentColor = stop.type === 'handoff' ? '#9CA3AF' : (DRIVER_COLORS[stop.driver] || '#9CA3AF')
   return (
     <div
-      className="bg-white rounded-lg px-3 py-2.5 shadow-2xl rotate-1 pointer-events-none"
+      className="bg-white dark:bg-gray-800 rounded-lg px-3 py-2.5 shadow-2xl rotate-1 pointer-events-none"
       style={{ borderLeft: `4px solid ${accentColor}`, width: 260, opacity: 0.95 }}
     >
       <div className="text-xs font-mono text-gray-400 mb-0.5">{stop.time}</div>
-      <div className="font-semibold text-gray-800 text-sm truncate">{stop.title}</div>
+      <div className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">{stop.title}</div>
     </div>
   )
 }
@@ -851,7 +851,7 @@ function StopCard({ stop, onUpdate, onRemove }) {
   return (
     <div
       ref={setNodeRef}
-      className={`bg-white rounded-lg relative group transition-opacity ${isSub ? 'p-2 sm:p-2.5' : 'p-3 sm:p-4'}`}
+      className={`bg-white dark:bg-gray-800 rounded-lg relative group transition-opacity ${isSub ? 'p-2 sm:p-2.5' : 'p-3 sm:p-4'}`}
       style={{
         border: borderStyle,
         borderLeft: `${isSub ? 3 : 4}px solid ${accentColor}`,
@@ -894,27 +894,27 @@ function StopCard({ stop, onUpdate, onRemove }) {
             {isDrive && <DriverBadge driver={stop.driver} type={stop.type} onClick={canEdit ? cycleDriver : undefined} />}
             {isHandoff && <DriverBadge driver={stop.driver} type="handoff" />}
             {stop.type === 'stop' && !isSub && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">📍 Stop</span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">📍 Stop</span>
             )}
           </div>
 
           {/* Title + maps */}
-          <div className={`font-semibold text-gray-800 flex items-center flex-wrap gap-x-1 ${isSub ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'} mb-0.5`}>
+          <div className={`font-semibold text-gray-800 dark:text-gray-100 flex items-center flex-wrap gap-x-1 ${isSub ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'} mb-0.5`}>
             <EditableField value={stop.title} onChange={v => onUpdate({ ...stop, title: v })} placeholder="Add title" />
             <MapsLinkEditor mapsUrl={stop.mapsUrl || ''} onChange={url => onUpdate({ ...stop, mapsUrl: url })} />
           </div>
 
           {/* Description — hidden on sub-stops */}
           {!isSub && (
-            <div className="text-gray-500 text-xs sm:text-sm mb-1">
+            <div className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm mb-1">
               <EditableField value={stop.description} onChange={v => onUpdate({ ...stop, description: v })} multiline placeholder="Add description" />
             </div>
           )}
 
           {/* Driver: drive time → computed arrival */}
           {isDrive && (
-            <div className="flex items-center gap-1.5 mt-1 text-xs text-gray-500">
-              <span className="text-gray-400">drives for</span>
+            <div className="flex items-center gap-1.5 mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <span className="text-gray-400 dark:text-gray-500">drives for</span>
               <MinutesField value={stop.driveMins || 0} onChange={v => onUpdate({ ...stop, driveMins: v })} />
               {estArrival && <span className="text-gray-400 font-mono">· est. arrival {estArrival}</span>}
             </div>
@@ -938,7 +938,7 @@ function StopCard({ stop, onUpdate, onRemove }) {
               {canEdit && stop.type === 'stop' && (
                 <button
                   onClick={() => onUpdate({ ...stop, level: isSub ? 'main' : 'sub' })}
-                  className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-xs text-gray-300 hover:text-blue-500 border border-gray-200 hover:border-blue-300 rounded px-1.5 py-0.5 leading-none"
+                  className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-xs text-gray-300 dark:text-gray-600 hover:text-blue-500 border border-gray-200 dark:border-gray-700 hover:border-blue-300 rounded px-1.5 py-0.5 leading-none"
                   title={isSub ? 'Promote to main stop' : 'Make sub-stop'}
                 >
                   {isSub ? '↑ main' : '↓ sub'}
@@ -970,15 +970,15 @@ function AddStopModal({ day, onAdd, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 no-print" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
-        <h3 className="font-semibold text-gray-800 mb-3 text-base">Add stop · {DAY_LABELS[day]}</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
+        <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-3 text-base">Add stop · {DAY_LABELS[day]}</h3>
 
-        <div className="flex rounded-lg overflow-hidden border border-gray-200 text-xs mb-3">
+        <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 text-xs mb-3">
           {['main', 'sub'].map(lvl => (
             <button
               key={lvl} type="button"
               onClick={() => setForm(f => ({ ...f, level: lvl }))}
-              className={`flex-1 py-2 font-medium transition-colors ${form.level === lvl ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+              className={`flex-1 py-2 font-medium transition-colors ${form.level === lvl ? 'bg-gray-900 text-white' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
             >
               {lvl === 'main' ? '● Main stop' : '· Sub-stop'}
             </button>
@@ -988,12 +988,12 @@ function AddStopModal({ day, onAdd, onClose }) {
         <form onSubmit={submit} className="space-y-3">
           <input
             type="time"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+            className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
             value={parseToHHMM(form.time)}
             onChange={e => setForm(f => ({ ...f, time: formatFromHHMM(e.target.value) }))}
           />
           <input
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+            className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
             placeholder="Title *"
             value={form.title}
             onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
@@ -1001,7 +1001,7 @@ function AddStopModal({ day, onAdd, onClose }) {
           />
           {form.level === 'main' && (
             <textarea
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 resize-none"
+              className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 resize-none"
               placeholder="Description"
               rows={2}
               value={form.description}
@@ -1009,16 +1009,16 @@ function AddStopModal({ day, onAdd, onClose }) {
             />
           )}
           <input
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+            className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
             placeholder="Google Maps URL (optional)"
             value={form.mapsUrl}
             onChange={e => setForm(f => ({ ...f, mapsUrl: e.target.value }))}
           />
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Driver</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Driver</label>
               <select
-                className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm outline-none focus:border-blue-400"
+                className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-2 py-2 text-sm outline-none focus:border-blue-400"
                 value={form.driver}
                 onChange={e => setForm(f => ({ ...f, driver: e.target.value }))}
               >
@@ -1026,9 +1026,9 @@ function AddStopModal({ day, onAdd, onClose }) {
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Type</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Type</label>
               <select
-                className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm outline-none focus:border-blue-400"
+                className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-2 py-2 text-sm outline-none focus:border-blue-400"
                 value={form.type}
                 onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
               >
@@ -1041,11 +1041,11 @@ function AddStopModal({ day, onAdd, onClose }) {
 
           {form.type === 'drive' && (
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Driving time (min)</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Driving time (min)</label>
               <div className="relative">
                 <input
                   type="number" min="0" step="5"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 pr-10 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+                  className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 pr-10 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
                   placeholder="0"
                   value={form.driveMins || ''}
                   onChange={e => setForm(f => ({ ...f, driveMins: parseInt(e.target.value) || 0 }))}
@@ -1056,13 +1056,13 @@ function AddStopModal({ day, onAdd, onClose }) {
           )}
 
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">
+            <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">
               {form.level === 'sub' ? 'Stop duration (affects arrival)' : 'Stay duration (min)'}
             </label>
             <div className="relative">
               <input
                 type="number" min="0" step="5"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 pr-10 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+                className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 pr-10 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
                 placeholder="0"
                 value={form.stopMins || ''}
                 onChange={e => setForm(f => ({ ...f, stopMins: parseInt(e.target.value) || 0 }))}
@@ -1072,7 +1072,7 @@ function AddStopModal({ day, onAdd, onClose }) {
           </div>
 
           <div className="flex gap-2 pt-1">
-            <button type="button" onClick={onClose} className="flex-1 border border-gray-200 rounded-lg py-2 text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+            <button type="button" onClick={onClose} className="flex-1 border border-gray-200 dark:border-gray-600 rounded-lg py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">Cancel</button>
             <button type="submit" className="flex-1 bg-gray-900 text-white rounded-lg py-2 text-sm font-medium hover:bg-gray-700">Add</button>
           </div>
         </form>
@@ -1101,13 +1101,13 @@ function DaySection({ day, stops, onUpdate, onRemove, onAdd }) {
     >
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900">{DAY_LABELS[day]}</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">{DAY_LABELS[day]}</h2>
           <div className="text-xs text-gray-400">{stops.length} stops</div>
         </div>
         {canEdit && (
           <button
             onClick={() => setShowAdd(true)}
-            className="no-print flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 border border-gray-200 hover:border-gray-400 rounded-lg px-3 py-1.5 transition-colors"
+            className="no-print flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 rounded-lg px-3 py-1.5 transition-colors"
           >
             <span className="text-base leading-none">+</span> Add stop
           </button>
@@ -1115,7 +1115,7 @@ function DaySection({ day, stops, onUpdate, onRemove, onAdd }) {
       </div>
 
       <div className="relative">
-        <div className="absolute left-[22px] top-4 bottom-4 w-px bg-gray-100" />
+        <div className="absolute left-[22px] top-4 bottom-4 w-px bg-gray-100 dark:bg-gray-700" />
         <div className="space-y-2">
           {sorted.map(stop => (
             <div key={stop.id} className={stop.level === 'sub' ? 'ml-7 sm:ml-9' : ''}>
@@ -1151,7 +1151,7 @@ function RotationBar({ stops }) {
   return (
     <div className="mb-8">
       <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Driving Rotation</h3>
-      <div className="flex rounded-lg overflow-hidden border border-gray-100 h-9">
+      <div className="flex rounded-lg overflow-hidden border border-gray-100 dark:border-gray-700 h-9">
         {segments.map(seg => {
           const color = DRIVER_COLORS[seg.driver] || '#9CA3AF'
           return (
@@ -1191,19 +1191,19 @@ function DriverSummaryCards({ stops }) {
           const s = stats[driver]
           const color = DRIVER_COLORS[driver]
           return (
-            <div key={driver} className="bg-white rounded-lg border p-3" style={{ borderColor: color + '44' }}>
+            <div key={driver} className="bg-white dark:bg-gray-800 rounded-lg border p-3" style={{ borderColor: color + '44' }}>
               <div className="flex items-center gap-2 mb-2">
                 <DriverDot driver={driver} size={10} />
-                <span className="font-semibold text-sm text-gray-800">{DRIVER_LABELS[driver]}</span>
+                <span className="font-semibold text-sm text-gray-800 dark:text-gray-200">{DRIVER_LABELS[driver]}</span>
               </div>
-              <div className="text-xs text-gray-500 space-y-0.5">
+              <div className="text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
                 <div className="flex justify-between">
                   <span>Drive time</span>
-                  <span className="font-mono font-medium text-gray-700">{formatHours(s.minutes)}</span>
+                  <span className="font-mono font-medium text-gray-700 dark:text-gray-300">{formatHours(s.minutes)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Legs</span>
-                  <span className="font-mono font-medium text-gray-700">{s.legs}</span>
+                  <span className="font-mono font-medium text-gray-700 dark:text-gray-300">{s.legs}</span>
                 </div>
               </div>
             </div>
@@ -1249,10 +1249,10 @@ function LiveStopRow({ stop, isChecked, offset, isNext, onCheck, onDelay, onUpda
     <div
       className={`relative flex gap-3 px-3 sm:px-4 py-3 rounded-xl border transition-all ${
         isChecked
-          ? 'bg-gray-50 border-gray-100 opacity-60'
+          ? 'bg-gray-50 dark:bg-gray-800/40 border-gray-100 dark:border-gray-700 opacity-60'
           : isNext
-            ? 'bg-amber-50 border-amber-300 shadow-sm'
-            : 'bg-white border-gray-100 hover:border-gray-200'
+            ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 shadow-sm'
+            : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600'
       }`}
       style={{ borderLeft: `3px solid ${isChecked ? '#E5E7EB' : accentColor}` }}
     >
@@ -1288,7 +1288,7 @@ function LiveStopRow({ stop, isChecked, offset, isNext, onCheck, onDelay, onUpda
       <div className="flex-1 min-w-0">
         {/* Time + offset badge + driver + UP NEXT */}
         <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
-          <span className={`text-xs font-mono font-semibold ${isChecked ? 'text-gray-400' : 'text-gray-700'}`}>
+          <span className={`text-xs font-mono font-semibold ${isChecked ? 'text-gray-400' : 'text-gray-700 dark:text-gray-300'}`}>
             {effectiveTime}
           </span>
           {offset !== 0 && (
@@ -1306,7 +1306,7 @@ function LiveStopRow({ stop, isChecked, offset, isNext, onCheck, onDelay, onUpda
         </div>
 
         {/* Title — editable if PIN unlocked */}
-        <div className={`font-semibold text-sm flex items-center flex-wrap gap-x-1 ${isChecked ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
+        <div className={`font-semibold text-sm flex items-center flex-wrap gap-x-1 ${isChecked ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-100'}`}>
           <EditableField
             value={stop.title}
             onChange={v => onUpdate({ ...stop, title: v })}
@@ -1357,7 +1357,7 @@ function LiveStopRow({ stop, isChecked, offset, isNext, onCheck, onDelay, onUpda
                           ? p > 0
                             ? 'bg-orange-500 text-white border-orange-500'
                             : 'bg-emerald-600 text-white border-emerald-600'
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                          : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-gray-400'
                       }`}
                     >
                       {p > 0 ? `+${p}` : p}m
@@ -1366,7 +1366,7 @@ function LiveStopRow({ stop, isChecked, offset, isNext, onCheck, onDelay, onUpda
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => setDelayInput(d => d - 5)}
-                      className="w-6 h-6 rounded border border-gray-200 bg-white text-xs hover:bg-gray-50 flex items-center justify-center font-bold"
+                      className="w-6 h-6 rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs hover:bg-gray-50 dark:hover:bg-gray-600 flex items-center justify-center font-bold"
                     >−</button>
                     <input
                       ref={delayInputRef}
@@ -1377,12 +1377,12 @@ function LiveStopRow({ stop, isChecked, offset, isNext, onCheck, onDelay, onUpda
                         if (e.key === 'Enter') submitDelay()
                         if (e.key === 'Escape') setShowDelay(false)
                       }}
-                      className="w-14 border border-orange-300 rounded px-1 py-1 text-xs font-mono text-center outline-none focus:ring-1 focus:ring-orange-400 bg-white"
+                      className="w-14 border border-orange-300 dark:border-orange-700 rounded px-1 py-1 text-xs font-mono text-center outline-none focus:ring-1 focus:ring-orange-400 bg-white dark:bg-gray-700 dark:text-gray-100"
                       step="5"
                     />
                     <button
                       onClick={() => setDelayInput(d => d + 5)}
-                      className="w-6 h-6 rounded border border-gray-200 bg-white text-xs hover:bg-gray-50 flex items-center justify-center font-bold"
+                      className="w-6 h-6 rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs hover:bg-gray-50 dark:hover:bg-gray-600 flex items-center justify-center font-bold"
                     >+</button>
                     <span className="text-xs text-gray-500">min</span>
                   </div>
@@ -1431,20 +1431,20 @@ function LiveDaySection({ day, stops, trackerChecked, trackerOffsets, onCheck, o
   return (
     <div className="mb-8">
       <div className="flex items-center gap-3 mb-3">
-        <h2 className="text-base sm:text-lg font-bold text-gray-900">{DAY_LABELS[day]}</h2>
+        <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">{DAY_LABELS[day]}</h2>
         <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${
           allDone
-            ? 'bg-green-100 text-green-700'
+            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
             : doneCnt > 0
-              ? 'bg-amber-100 text-amber-700'
-              : 'bg-gray-100 text-gray-500'
+              ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
         }`}>
           {allDone ? '✓ Done' : `${doneCnt} / ${sorted.length}`}
         </span>
         {canEdit && (
           <button
             onClick={() => setShowAdd(true)}
-            className="ml-auto text-xs text-gray-400 hover:text-gray-700 border border-gray-200 hover:border-gray-400 rounded-lg px-2.5 py-1 transition-colors flex items-center gap-1"
+            className="ml-auto text-xs text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 rounded-lg px-2.5 py-1 transition-colors flex items-center gap-1"
           >
             + stop
           </button>
@@ -1495,11 +1495,11 @@ function LiveTrackerTab({ stops, trackerChecked, trackerOffsets, onCheck, onDela
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
       {/* Progress card */}
-      <div className="bg-white rounded-xl border border-gray-100 p-4 mb-6 shadow-sm">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-4 mb-6 shadow-sm">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div>
             <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold mb-0.5">Trip Progress</p>
-            <p className="text-2xl font-bold text-gray-900">{pct}%</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{pct}%</p>
             <p className="text-xs text-gray-500">{totalChecked} of {totalStops} stops completed</p>
           </div>
           <div className="flex flex-col items-end gap-1.5">
@@ -1535,7 +1535,7 @@ function LiveTrackerTab({ stops, trackerChecked, trackerOffsets, onCheck, onDela
         </div>
 
         {/* Progress bar */}
-        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+        <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-700"
             style={{
@@ -1631,10 +1631,10 @@ function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange })
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
       {/* Total + add button */}
-      <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4 flex items-center justify-between shadow-sm">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-4 mb-4 flex items-center justify-between shadow-sm">
         <div>
           <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold mb-0.5">Total Spent</p>
-          <p className="text-2xl font-bold text-gray-900">${total.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">${total.toFixed(2)}</p>
           <p className="text-xs text-gray-400">{expList.length} expense{expList.length !== 1 ? 's' : ''}</p>
         </div>
         <button
@@ -1652,12 +1652,12 @@ function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange })
           const bal   = balances[person]
           const settled = Math.abs(bal) < 0.01
           return (
-            <div key={person} className="bg-white rounded-xl border p-3 shadow-sm" style={{ borderColor: color + '55' }}>
+            <div key={person} className="bg-white dark:bg-gray-800 rounded-xl border p-3 shadow-sm" style={{ borderColor: color + '55' }}>
               <div className="flex items-center gap-1.5 mb-1.5">
                 <DriverDot driver={person} size={8} />
-                <span className="text-xs font-bold text-gray-700">{DRIVER_LABELS[person]}</span>
+                <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{DRIVER_LABELS[person]}</span>
               </div>
-              <p className="text-xl font-bold text-gray-900">${paid[person].toFixed(2)}</p>
+              <p className="text-xl font-bold text-gray-900 dark:text-gray-100">${paid[person].toFixed(2)}</p>
               <p className={`text-xs font-semibold mt-0.5 ${settled ? 'text-gray-400' : bal > 0 ? 'text-green-600' : 'text-red-500'}`}>
                 {settled ? 'even' : bal > 0 ? `+$${bal.toFixed(2)} owed` : `-$${Math.abs(bal).toFixed(2)} owes`}
               </p>
@@ -1667,14 +1667,14 @@ function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange })
       </div>
 
       {/* Split + settlement */}
-      <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4 shadow-sm">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-4 mb-4 shadow-sm">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-semibold text-gray-700">Split among</span>
+          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Split among</span>
           <div className="flex items-center gap-2">
-            <button onClick={() => onSplitCountChange(Math.max(1, splitCount - 1))} className="w-7 h-7 rounded-full border border-gray-200 text-sm hover:bg-gray-100 font-bold leading-none">−</button>
-            <span className="font-mono font-bold text-gray-900 w-5 text-center">{splitCount}</span>
-            <button onClick={() => onSplitCountChange(splitCount + 1)} className="w-7 h-7 rounded-full border border-gray-200 text-sm hover:bg-gray-100 font-bold leading-none">+</button>
-            <span className="text-sm text-gray-500">people · <span className="font-mono font-semibold text-gray-700">${share.toFixed(2)}/ea</span></span>
+            <button onClick={() => onSplitCountChange(Math.max(1, splitCount - 1))} className="w-7 h-7 rounded-full border border-gray-200 dark:border-gray-600 dark:text-gray-300 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 font-bold leading-none">−</button>
+            <span className="font-mono font-bold text-gray-900 dark:text-gray-100 w-5 text-center">{splitCount}</span>
+            <button onClick={() => onSplitCountChange(splitCount + 1)} className="w-7 h-7 rounded-full border border-gray-200 dark:border-gray-600 dark:text-gray-300 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 font-bold leading-none">+</button>
+            <span className="text-sm text-gray-500">people · <span className="font-mono font-semibold text-gray-700 dark:text-gray-300">${share.toFixed(2)}/ea</span></span>
           </div>
         </div>
 
@@ -1686,7 +1686,7 @@ function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange })
           <div className="space-y-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">To settle up</p>
             {transfers.map((t, i) => (
-              <div key={i} className="flex items-center gap-2 py-1.5 border-t border-gray-50">
+              <div key={i} className="flex items-center gap-2 py-1.5 border-t border-gray-50 dark:border-gray-700">
                 <div className="flex items-center gap-1 min-w-0">
                   <DriverDot driver={t.from} size={8} />
                   <span className="text-sm font-semibold truncate" style={{ color: DRIVER_COLORS[t.from] }}>{DRIVER_LABELS[t.from]}</span>
@@ -1696,7 +1696,7 @@ function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange })
                   <DriverDot driver={t.to} size={8} />
                   <span className="text-sm font-semibold truncate" style={{ color: DRIVER_COLORS[t.to] }}>{DRIVER_LABELS[t.to]}</span>
                 </div>
-                <span className="ml-auto font-mono font-bold text-gray-800 flex-shrink-0">${t.amount.toFixed(2)}</span>
+                <span className="ml-auto font-mono font-bold text-gray-800 dark:text-gray-200 flex-shrink-0">${t.amount.toFixed(2)}</span>
               </div>
             ))}
           </div>
@@ -1705,7 +1705,7 @@ function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange })
 
       {/* Category breakdown */}
       {expList.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-4 mb-4 shadow-sm">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">By Category</p>
           <div className="space-y-1.5">
             {Object.entries(EXPENSE_CATEGORIES).map(([key, cat]) => {
@@ -1715,11 +1715,11 @@ function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange })
               return (
                 <div key={key} className="flex items-center gap-2">
                   <span className="text-base w-6 flex-shrink-0">{cat.icon}</span>
-                  <span className="text-xs text-gray-600 w-14 flex-shrink-0">{cat.label}</span>
-                  <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-gray-600 rounded-full" style={{ width: `${pct}%` }} />
+                  <span className="text-xs text-gray-600 dark:text-gray-400 w-14 flex-shrink-0">{cat.label}</span>
+                  <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-gray-600 dark:bg-gray-400 rounded-full" style={{ width: `${pct}%` }} />
                   </div>
-                  <span className="text-xs font-mono font-semibold text-gray-700 w-14 text-right flex-shrink-0">${catTotal.toFixed(2)}</span>
+                  <span className="text-xs font-mono font-semibold text-gray-700 dark:text-gray-300 w-14 text-right flex-shrink-0">${catTotal.toFixed(2)}</span>
                 </div>
               )
             })}
@@ -1734,18 +1734,18 @@ function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange })
           {expList.map(exp => {
             const cat = EXPENSE_CATEGORIES[exp.category] || EXPENSE_CATEGORIES.misc
             return (
-              <div key={exp.id} className="bg-white rounded-xl border border-gray-100 px-4 py-3 flex items-center gap-3 group shadow-sm">
+              <div key={exp.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 px-4 py-3 flex items-center gap-3 group shadow-sm">
                 <span className="text-xl flex-shrink-0">{cat.icon}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-800 truncate">{exp.description || cat.label}</p>
+                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{exp.description || cat.label}</p>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <DriverDot driver={exp.paidBy} size={6} />
                     <span className="text-xs text-gray-500">{DRIVER_LABELS[exp.paidBy]}</span>
-                    <span className="text-gray-200">·</span>
+                    <span className="text-gray-200 dark:text-gray-600">·</span>
                     <span className="text-xs text-gray-400">{cat.label}</span>
                   </div>
                 </div>
-                <span className="font-mono font-bold text-gray-900 text-sm flex-shrink-0">${Number(exp.amount).toFixed(2)}</span>
+                <span className="font-mono font-bold text-gray-900 dark:text-gray-100 text-sm flex-shrink-0">${Number(exp.amount).toFixed(2)}</span>
                 <button
                   onClick={() => onRemove(exp.id)}
                   className="opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded-full bg-red-50 text-red-400 hover:bg-red-100 text-xs transition-opacity flex-shrink-0"
@@ -1765,31 +1765,31 @@ function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange })
       {/* Add expense modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-4" onClick={() => setShowForm(false)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
-            <h3 className="font-bold text-gray-900 mb-4 text-base">Add Expense</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
+            <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-4 text-base">Add Expense</h3>
             <form onSubmit={submit} className="space-y-4">
               {/* Amount */}
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Amount ($)</label>
+                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Amount ($)</label>
                 <input
                   ref={amountRef}
                   type="number" min="0" step="0.01" placeholder="0.00"
                   value={form.amount}
                   onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-xl font-mono outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+                  className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-xl px-3 py-2.5 text-xl font-mono outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
                   required
                 />
               </div>
 
               {/* Category */}
               <div>
-                <label className="text-xs text-gray-500 mb-1.5 block">Category</label>
+                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1.5 block">Category</label>
                 <div className="grid grid-cols-5 gap-1.5">
                   {Object.entries(EXPENSE_CATEGORIES).map(([key, cat]) => (
                     <button key={key} type="button"
                       onClick={() => setForm(f => ({ ...f, category: key }))}
                       className={`flex flex-col items-center gap-0.5 py-2 px-1 rounded-xl border text-xs font-semibold transition-colors ${
-                        form.category === key ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                        form.category === key ? 'bg-gray-900 text-white border-gray-900' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-gray-400'
                       }`}
                     >
                       <span className="text-lg">{cat.icon}</span>
@@ -1801,13 +1801,13 @@ function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange })
 
               {/* Paid by */}
               <div>
-                <label className="text-xs text-gray-500 mb-1.5 block">Paid by</label>
+                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1.5 block">Paid by</label>
                 <div className="grid grid-cols-4 gap-1.5">
                   {people.map(person => (
                     <button key={person} type="button"
                       onClick={() => setForm(f => ({ ...f, paidBy: person }))}
                       className={`py-2 rounded-xl border text-xs font-bold transition-colors ${
-                        form.paidBy === person ? 'text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                        form.paidBy === person ? 'text-white border-transparent' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-gray-400'
                       }`}
                       style={form.paidBy === person ? { backgroundColor: DRIVER_COLORS[person] } : {}}
                     >
@@ -1819,17 +1819,17 @@ function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange })
 
               {/* Description */}
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Description <span className="text-gray-300">(optional)</span></label>
+                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Description <span className="text-gray-300 dark:text-gray-600">(optional)</span></label>
                 <input
                   type="text" placeholder="e.g. Shell on I-81"
                   value={form.description}
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+                  className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
                 />
               </div>
 
               <div className="flex gap-2 pt-1">
-                <button type="button" onClick={() => setShowForm(false)} className="flex-1 border border-gray-200 rounded-xl py-2.5 text-sm text-gray-600 hover:bg-gray-50 font-medium">Cancel</button>
+                <button type="button" onClick={() => setShowForm(false)} className="flex-1 border border-gray-200 dark:border-gray-600 rounded-xl py-2.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium">Cancel</button>
                 <button type="submit" className="flex-1 bg-gray-900 text-white rounded-xl py-2.5 text-sm font-bold hover:bg-gray-700">Add</button>
               </div>
             </form>
@@ -2005,7 +2005,7 @@ function GalleryTab() {
           <div className="flex justify-center gap-1.5 mt-3 flex-wrap px-4">
             {images.map((_, i) => (
               <button key={i} onClick={() => setIdx(i)}
-                className={`rounded-full transition-all duration-200 ${i === idx ? 'w-4 h-2 bg-gray-700' : 'w-2 h-2 bg-gray-300 hover:bg-gray-500'}`}
+                className={`rounded-full transition-all duration-200 ${i === idx ? 'w-4 h-2 bg-gray-700 dark:bg-gray-300' : 'w-2 h-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-500'}`}
                 aria-label={`Photo ${i + 1}`} />
             ))}
           </div>
@@ -2020,9 +2020,9 @@ function GalleryTab() {
       )}
 
       {/* Upload section */}
-      <div className="mt-6 border-t border-gray-100 pt-5">
+      <div className="mt-6 border-t border-gray-100 dark:border-gray-700 pt-5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-gray-700">📤 Upload Photos</h3>
+          <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">📤 Upload Photos</h3>
           {uploadToken && (
             <span className="text-xs text-green-600 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
@@ -2032,10 +2032,10 @@ function GalleryTab() {
         </div>
 
         {!clientId ? (
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-            <p className="text-xs font-semibold text-gray-600 mb-1">Upload not configured</p>
+          <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+            <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Upload not configured</p>
             <p className="text-xs text-gray-400 leading-relaxed">
-              Add <code className="bg-white border border-gray-200 px-1 rounded">VITE_GOOGLE_OAUTH_CLIENT_ID</code> to .env<br/>
+              Add <code className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-1 rounded">VITE_GOOGLE_OAUTH_CLIENT_ID</code> to .env<br/>
               Google Cloud Console → Credentials → Create OAuth 2.0 Client ID (Web app)<br/>
               Add authorized origin: <code className="bg-white border border-gray-200 px-1 rounded">http://localhost:5173</code>
             </p>
@@ -2061,11 +2061,11 @@ function GalleryTab() {
               onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files) }}
               onClick={() => !uploading && fileInputRef.current?.click()}
               className={`rounded-xl border-2 border-dashed py-8 text-center cursor-pointer transition-colors ${
-                dragging ? 'border-purple-400 bg-purple-50' : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50'
+                dragging ? 'border-purple-400 bg-purple-50 dark:bg-purple-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/30'
               } ${uploading ? 'pointer-events-none opacity-60' : ''}`}
             >
               <p className="text-2xl mb-1">🖼️</p>
-              <p className="text-sm text-gray-600 font-medium">Drop photos here or click to browse</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Drop photos here or click to browse</p>
               <p className="text-xs text-gray-400 mt-0.5">JPG · PNG · HEIC · multiple files OK</p>
               <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
                 onChange={e => handleFiles(e.target.files)} />
@@ -2103,9 +2103,83 @@ function GalleryTab() {
   )
 }
 
+// ─── Login Gate ──────────────────────────────────────────────────────────────
+
+function LoginGate({ onLogin }) {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState(false)
+  const usernameRef = useRef(null)
+
+  useEffect(() => { usernameRef.current?.focus() }, [])
+
+  function submit(e) {
+    e.preventDefault()
+    if (username === 'broskis' && password === 'letsdrive26$') {
+      sessionStorage.setItem('site_auth', '1')
+      onLogin()
+    } else {
+      setError(true)
+      setPassword('')
+      setTimeout(() => usernameRef.current?.focus(), 0)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-8">
+          <p className="text-5xl mb-3">🚗</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">Road Trip 2026</h1>
+          <p className="text-sm text-gray-400 mt-1">Sign in to access the trip planner</p>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+          <form onSubmit={submit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Username</label>
+              <input
+                ref={usernameRef}
+                type="text"
+                autoComplete="username"
+                value={username}
+                onChange={e => { setUsername(e.target.value); setError(false) }}
+                placeholder="username"
+                className={`w-full border rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 transition-colors dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500 ${
+                  error ? 'border-red-300 bg-red-50 focus:ring-red-200 dark:bg-red-900/30 dark:border-red-700' : 'border-gray-200 dark:border-gray-600 focus:ring-blue-200 focus:border-blue-400'
+                }`}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Password</label>
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={e => { setPassword(e.target.value); setError(false) }}
+                placeholder="password"
+                className={`w-full border rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 transition-colors dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500 ${
+                  error ? 'border-red-300 bg-red-50 focus:ring-red-200 dark:bg-red-900/30 dark:border-red-700' : 'border-gray-200 dark:border-gray-600 focus:ring-blue-200 focus:border-blue-400'
+                }`}
+              />
+            </div>
+            {error && <p className="text-xs text-red-500 dark:text-red-400 text-center">Incorrect credentials. Try again.</p>}
+            <button
+              type="submit"
+              className="w-full bg-gray-900 dark:bg-gray-700 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-gray-700 dark:hover:bg-gray-600 transition-colors mt-1"
+            >
+              Sign in
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main App ────────────────────────────────────────────────────────────────
 
 export default function App() {
+  const [loggedIn, setLoggedIn] = useState(() => sessionStorage.getItem('site_auth') === '1')
   const [stops, setStops] = useState(null)
   const [notes, setNotes] = useState({})
   const [generalNote, setGeneralNote] = useState('')
@@ -2117,7 +2191,15 @@ export default function App() {
   const [trackerOffsets, setTrackerOffsets] = useState({})
   const [expenses, setExpenses] = useState({})
   const [splitCount, setSplitCountState] = useState(4)
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('dark') === '1')
   const skipSaveRef = useRef(false)
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode)
+    localStorage.setItem('dark', darkMode ? '1' : '0')
+  }, [darkMode])
+
+  if (!loggedIn) return <LoginGate onLogin={() => setLoggedIn(true)} />
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -2295,15 +2377,22 @@ export default function App() {
   return (
     <EditContext.Provider value={pinUnlocked}>
       <NotesContext.Provider value={{ notes, updateNote }}>
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
           {/* Header */}
-          <header className="bg-white border-b border-gray-200 sticky top-0 z-30 no-print">
+          <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-30 no-print">
             <div className="max-w-2xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <h1 className="text-base sm:text-lg font-bold text-gray-900 leading-tight">🚗 Road Trip 2026</h1>
-                <p className="text-xs text-gray-400">May 14–17 · NYC → Columbia University</p>
+                <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">🚗 Road Trip 2026</h1>
+                <p className="text-xs text-gray-400 dark:text-gray-500">May 14–17 · NYC → Columbia University</p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => setDarkMode(d => !d)}
+                  title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+                  className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors p-1 rounded-lg"
+                >
+                  {darkMode ? '☀️' : '🌙'}
+                </button>
                 {pinUnlocked ? (
                   <button
                     onClick={lock}
@@ -2316,7 +2405,7 @@ export default function App() {
                   <button
                     onClick={() => setShowPinModal(true)}
                     title="Enter PIN to enable editing"
-                    className="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:bg-gray-100 transition-colors"
+                    className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                   >
                     🔒 Locked
                   </button>
@@ -2325,7 +2414,7 @@ export default function App() {
                 {pinUnlocked && activeTab === 'itinerary' && (
                   <button
                     onClick={resetData}
-                    className="text-xs text-gray-400 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:border-gray-400 transition-colors"
+                    className="text-xs text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5 hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
                   >
                     Reset
                   </button>
@@ -2342,13 +2431,13 @@ export default function App() {
             </div>
 
             {/* Tab bar */}
-            <div className="max-w-2xl mx-auto px-4 sm:px-6 flex border-t border-gray-100">
+            <div className="max-w-2xl mx-auto px-4 sm:px-6 flex border-t border-gray-100 dark:border-gray-700">
               <button
                 onClick={() => setActiveTab('itinerary')}
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'itinerary'
-                    ? 'border-gray-900 text-gray-900'
-                    : 'border-transparent text-gray-400 hover:text-gray-700'
+                    ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100'
+                    : 'border-transparent text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
               >
                 🗺 Itinerary
@@ -2357,12 +2446,11 @@ export default function App() {
                 onClick={() => setActiveTab('tracker')}
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors relative ${
                   activeTab === 'tracker'
-                    ? 'border-amber-500 text-gray-900'
-                    : 'border-transparent text-gray-400 hover:text-gray-700'
+                    ? 'border-amber-500 text-gray-900 dark:text-gray-100'
+                    : 'border-transparent text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
               >
                 📍 Live Tracker
-                {/* Live indicator dot */}
                 {Object.keys(trackerChecked).length > 0 && (
                   <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
                 )}
@@ -2371,8 +2459,8 @@ export default function App() {
                 onClick={() => setActiveTab('gallery')}
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'gallery'
-                    ? 'border-purple-500 text-gray-900'
-                    : 'border-transparent text-gray-400 hover:text-gray-700'
+                    ? 'border-purple-500 text-gray-900 dark:text-gray-100'
+                    : 'border-transparent text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
               >
                 📸 Gallery
@@ -2381,8 +2469,8 @@ export default function App() {
                 onClick={() => setActiveTab('costs')}
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'costs'
-                    ? 'border-emerald-500 text-gray-900'
-                    : 'border-transparent text-gray-400 hover:text-gray-700'
+                    ? 'border-emerald-500 text-gray-900 dark:text-gray-100'
+                    : 'border-transparent text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
               >
                 💰 Costs
