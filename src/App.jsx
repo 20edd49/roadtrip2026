@@ -1188,6 +1188,391 @@ function DriverSummaryCards({ stops }) {
   )
 }
 
+// ─── Live Tracker Components ──────────────────────────────────────────────────
+
+function CheckIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 6L9 17l-5-5"/>
+    </svg>
+  )
+}
+
+function LiveStopRow({ stop, isChecked, offset, isNext, onCheck, onDelay, onUpdate, onRemove }) {
+  const canEdit = useContext(EditContext)
+  const [showDelay, setShowDelay] = useState(false)
+  const [delayInput, setDelayInput] = useState(15)
+  const delayInputRef = useRef(null)
+
+  useEffect(() => {
+    if (showDelay && delayInputRef.current) delayInputRef.current.select()
+  }, [showDelay])
+
+  const effectiveTime = offset ? addMinutesToTime(stop.time, offset) : stop.time
+  const accentColor = stop.type === 'handoff' ? DRIVER_COLORS.handoff : (DRIVER_COLORS[stop.driver] || '#9CA3AF')
+
+  function submitDelay() {
+    if (delayInput !== 0) onDelay(stop.id, stop.day, delayInput)
+    setShowDelay(false)
+    setDelayInput(15)
+  }
+
+  const PRESETS = [-30, -15, +15, +30]
+
+  return (
+    <div
+      className={`relative flex gap-3 px-3 sm:px-4 py-3 rounded-xl border transition-all ${
+        isChecked
+          ? 'bg-gray-50 border-gray-100 opacity-60'
+          : isNext
+            ? 'bg-amber-50 border-amber-300 shadow-sm'
+            : 'bg-white border-gray-100 hover:border-gray-200'
+      }`}
+      style={{ borderLeft: `3px solid ${isChecked ? '#E5E7EB' : accentColor}` }}
+    >
+      {/* Remove — PIN-gated */}
+      {canEdit && (
+        <button
+          onClick={() => onRemove(stop.id)}
+          className="absolute top-2 right-2 opacity-0 hover:opacity-100 w-5 h-5 flex items-center justify-center rounded-full bg-red-50 text-red-400 hover:bg-red-100 text-xs transition-opacity"
+          title="Remove stop"
+        >✕</button>
+      )}
+
+      {/* Check button — always available */}
+      <button
+        onClick={() => onCheck(stop.id, !isChecked)}
+        className="mt-0.5 flex-shrink-0 focus:outline-none"
+        title={isChecked ? 'Uncheck' : 'Mark done'}
+      >
+        {isChecked ? (
+          <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center shadow-sm">
+            <CheckIcon />
+          </div>
+        ) : isNext ? (
+          <div className="w-6 h-6 rounded-full border-2 border-amber-400 bg-amber-50 flex items-center justify-center">
+            <div className="w-2 h-2 rounded-full bg-amber-400" style={{ animation: 'pulse 1.5s ease-in-out infinite' }} />
+          </div>
+        ) : (
+          <div className="w-6 h-6 rounded-full border-2 border-gray-200 hover:border-gray-400 transition-colors" />
+        )}
+      </button>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        {/* Time + offset badge + driver + UP NEXT */}
+        <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+          <span className={`text-xs font-mono font-semibold ${isChecked ? 'text-gray-400' : 'text-gray-700'}`}>
+            {effectiveTime}
+          </span>
+          {offset !== 0 && (
+            <>
+              <span className="text-xs font-mono text-gray-400 line-through">{stop.time}</span>
+              <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${offset > 0 ? 'bg-orange-100 text-orange-600' : 'bg-emerald-100 text-emerald-700'}`}>
+                {offset > 0 ? `+${offset}m` : `${offset}m`}
+              </span>
+            </>
+          )}
+          <DriverBadge driver={stop.driver} type={stop.type} />
+          {isNext && (
+            <span className="text-xs bg-amber-400 text-white px-2 py-0.5 rounded-full font-semibold">UP NEXT</span>
+          )}
+        </div>
+
+        {/* Title — editable if PIN unlocked */}
+        <div className={`font-semibold text-sm flex items-center flex-wrap gap-x-1 ${isChecked ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
+          <EditableField
+            value={stop.title}
+            onChange={v => onUpdate({ ...stop, title: v })}
+            placeholder="Title"
+          />
+          {stop.mapsUrl && !isChecked && (
+            <a
+              href={stop.mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 hover:text-blue-700 flex-shrink-0"
+              title="Open in Maps"
+            >
+              <MapPinIcon />
+            </a>
+          )}
+          {canEdit && (
+            <MapsLinkEditor mapsUrl={stop.mapsUrl || ''} onChange={url => onUpdate({ ...stop, mapsUrl: url })} />
+          )}
+        </div>
+
+        {/* Description — editable, hidden when checked */}
+        {!isChecked && stop.description && (
+          <div className="text-xs text-gray-500 mt-0.5">
+            <EditableField
+              value={stop.description}
+              onChange={v => onUpdate({ ...stop, description: v })}
+              multiline
+            />
+          </div>
+        )}
+
+        {/* Delay / shift time UI — available without PIN */}
+        {!isChecked && (
+          <div className="mt-2">
+            {showDelay ? (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-2.5 space-y-2">
+                <p className="text-xs text-orange-700 font-medium">
+                  Shift this stop + every stop after it today:
+                </p>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {PRESETS.map(p => (
+                    <button
+                      key={p}
+                      onClick={() => setDelayInput(p)}
+                      className={`text-xs px-2 py-1 rounded font-mono font-semibold border transition-colors ${
+                        delayInput === p
+                          ? p > 0
+                            ? 'bg-orange-500 text-white border-orange-500'
+                            : 'bg-emerald-600 text-white border-emerald-600'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                      }`}
+                    >
+                      {p > 0 ? `+${p}` : p}m
+                    </button>
+                  ))}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setDelayInput(d => d - 5)}
+                      className="w-6 h-6 rounded border border-gray-200 bg-white text-xs hover:bg-gray-50 flex items-center justify-center font-bold"
+                    >−</button>
+                    <input
+                      ref={delayInputRef}
+                      type="number"
+                      value={delayInput}
+                      onChange={e => setDelayInput(parseInt(e.target.value) || 0)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') submitDelay()
+                        if (e.key === 'Escape') setShowDelay(false)
+                      }}
+                      className="w-14 border border-orange-300 rounded px-1 py-1 text-xs font-mono text-center outline-none focus:ring-1 focus:ring-orange-400 bg-white"
+                      step="5"
+                    />
+                    <button
+                      onClick={() => setDelayInput(d => d + 5)}
+                      className="w-6 h-6 rounded border border-gray-200 bg-white text-xs hover:bg-gray-50 flex items-center justify-center font-bold"
+                    >+</button>
+                    <span className="text-xs text-gray-500">min</span>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={submitDelay}
+                    className="flex-1 text-xs bg-orange-500 hover:bg-orange-600 text-white rounded-lg py-1.5 font-semibold transition-colors"
+                  >
+                    Apply shift
+                  </button>
+                  <button
+                    onClick={() => setShowDelay(false)}
+                    className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 border border-gray-200 rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => { setDelayInput(15); setShowDelay(true) }}
+                className="text-xs text-gray-400 hover:text-orange-500 flex items-center gap-1 transition-colors mt-0.5"
+              >
+                <span>⏱</span> shift time
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Notes */}
+        <NotesSection stopId={stop.id} />
+      </div>
+    </div>
+  )
+}
+
+function LiveDaySection({ day, stops, trackerChecked, trackerOffsets, onCheck, onDelay, onUpdate, onRemove, onAdd, nextStopId }) {
+  const canEdit = useContext(EditContext)
+  const [showAdd, setShowAdd] = useState(false)
+
+  const sorted = [...stops].sort((a, b) => parseTimeMinutes(a.time) - parseTimeMinutes(b.time))
+  const doneCnt = sorted.filter(s => trackerChecked[s.id]).length
+  const allDone = doneCnt === sorted.length && sorted.length > 0
+
+  return (
+    <div className="mb-8">
+      <div className="flex items-center gap-3 mb-3">
+        <h2 className="text-base sm:text-lg font-bold text-gray-900">{DAY_LABELS[day]}</h2>
+        <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${
+          allDone
+            ? 'bg-green-100 text-green-700'
+            : doneCnt > 0
+              ? 'bg-amber-100 text-amber-700'
+              : 'bg-gray-100 text-gray-500'
+        }`}>
+          {allDone ? '✓ Done' : `${doneCnt} / ${sorted.length}`}
+        </span>
+        {canEdit && (
+          <button
+            onClick={() => setShowAdd(true)}
+            className="ml-auto text-xs text-gray-400 hover:text-gray-700 border border-gray-200 hover:border-gray-400 rounded-lg px-2.5 py-1 transition-colors flex items-center gap-1"
+          >
+            + stop
+          </button>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        {sorted.map(stop => (
+          <LiveStopRow
+            key={stop.id}
+            stop={stop}
+            isChecked={!!trackerChecked[stop.id]}
+            offset={trackerOffsets[stop.id] || 0}
+            isNext={stop.id === nextStopId}
+            onCheck={onCheck}
+            onDelay={onDelay}
+            onUpdate={onUpdate}
+            onRemove={onRemove}
+          />
+        ))}
+      </div>
+
+      {showAdd && (
+        <AddStopModal
+          day={day}
+          onAdd={onAdd}
+          onClose={() => setShowAdd(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+function LiveTrackerTab({ stops, trackerChecked, trackerOffsets, onCheck, onDelay, onUpdate, onRemove, onAdd, onResetOffsets, onResetAll }) {
+  const allSorted = [...stops].sort((a, b) => {
+    if (a.day !== b.day) return a.day - b.day
+    return parseTimeMinutes(a.time) - parseTimeMinutes(b.time)
+  })
+
+  const nextStop = allSorted.find(s => !trackerChecked[s.id])
+  const nextStopId = nextStop?.id
+  const totalChecked = stops.filter(s => trackerChecked[s.id]).length
+  const totalStops = stops.length
+  const pct = totalStops ? Math.round((totalChecked / totalStops) * 100) : 0
+  const hasOffsets = Object.values(trackerOffsets).some(v => v !== 0)
+  const [confirmReset, setConfirmReset] = useState(false)
+
+  return (
+    <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
+      {/* Progress card */}
+      <div className="bg-white rounded-xl border border-gray-100 p-4 mb-6 shadow-sm">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold mb-0.5">Trip Progress</p>
+            <p className="text-2xl font-bold text-gray-900">{pct}%</p>
+            <p className="text-xs text-gray-500">{totalChecked} of {totalStops} stops completed</p>
+          </div>
+          <div className="flex flex-col items-end gap-1.5">
+            {hasOffsets && (
+              <button
+                onClick={onResetOffsets}
+                className="text-xs text-orange-500 hover:text-orange-700 border border-orange-200 hover:border-orange-400 rounded-lg px-2.5 py-1 transition-colors font-medium"
+              >
+                Clear delays
+              </button>
+            )}
+            {!confirmReset ? (
+              <button
+                onClick={() => setConfirmReset(true)}
+                className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1 transition-colors"
+              >
+                Reset tracker
+              </button>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-gray-500">Sure?</span>
+                <button
+                  onClick={() => { onResetAll(); setConfirmReset(false) }}
+                  className="text-xs bg-red-500 text-white rounded px-2 py-0.5 font-medium"
+                >Yes</button>
+                <button
+                  onClick={() => setConfirmReset(false)}
+                  className="text-xs text-gray-400 hover:text-gray-600"
+                >No</button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-700"
+            style={{
+              width: `${pct}%`,
+              background: pct === 100
+                ? '#22c55e'
+                : 'linear-gradient(90deg, #22c55e 0%, #f59e0b 100%)',
+            }}
+          />
+        </div>
+
+        {/* Next stop callout */}
+        {nextStop && (
+          <div className="mt-3 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <div className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" style={{ animation: 'pulse 1.5s ease-in-out infinite' }} />
+            <div className="min-w-0">
+              <p className="text-xs text-amber-700 font-semibold truncate">Next: {nextStop.title}</p>
+              <p className="text-xs text-amber-600 font-mono">
+                {addMinutesToTime(nextStop.time, trackerOffsets[nextStop.id] || 0)}
+                {(trackerOffsets[nextStop.id] || 0) !== 0 && (
+                  <span className="ml-1 line-through text-amber-400">{nextStop.time}</span>
+                )}
+                {' '}· {DAY_LABELS[nextStop.day]}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {pct === 100 && (
+          <div className="mt-3 text-center text-sm text-green-600 font-semibold">
+            🎉 Trip complete!
+          </div>
+        )}
+      </div>
+
+      {/* Day sections */}
+      {[1, 2, 3, 4].map(day => {
+        const dayStops = stops.filter(s => s.day === day)
+        if (dayStops.length === 0) return null
+        return (
+          <LiveDaySection
+            key={day}
+            day={day}
+            stops={dayStops}
+            trackerChecked={trackerChecked}
+            trackerOffsets={trackerOffsets}
+            onCheck={onCheck}
+            onDelay={onDelay}
+            onUpdate={onUpdate}
+            onRemove={onRemove}
+            onAdd={onAdd}
+            nextStopId={nextStopId}
+          />
+        )
+      })}
+
+      <p className="text-center text-xs text-gray-300 pb-8">
+        Tap the circle to check off a stop · Tap ⏱ shift time to cascade a delay
+      </p>
+    </main>
+  )
+}
+
 // ─── Main App ────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -1197,6 +1582,9 @@ export default function App() {
   const [draggedStop, setDraggedStop] = useState(null)
   const [pinUnlocked, setPinUnlocked] = useState(() => sessionStorage.getItem('pin_unlocked') === '1')
   const [showPinModal, setShowPinModal] = useState(false)
+  const [activeTab, setActiveTab] = useState('itinerary')
+  const [trackerChecked, setTrackerChecked] = useState({})
+  const [trackerOffsets, setTrackerOffsets] = useState({})
   const skipSaveRef = useRef(false)
 
   const sensors = useSensors(
@@ -1249,6 +1637,17 @@ export default function App() {
     return unsub
   }, [])
 
+  // Subscribe to tracker state (checked + offsets)
+  useEffect(() => {
+    const dbRef = ref(db, 'tracker')
+    const unsub = onValue(dbRef, (snapshot) => {
+      const data = snapshot.val() || {}
+      setTrackerChecked(data.checked || {})
+      setTrackerOffsets(data.offsets || {})
+    })
+    return unsub
+  }, [])
+
   useEffect(() => {
     if (stops === null) return
     if (skipSaveRef.current) {
@@ -1267,7 +1666,10 @@ export default function App() {
   }
 
   function updateStop(updated) {
-    setStops(prev => prev.map(s => s.id === updated.id ? updated : s))
+    setStops(prev => {
+      const exists = prev.some(s => s.id === updated.id)
+      return exists ? prev.map(s => s.id === updated.id ? updated : s) : [...prev, updated]
+    })
   }
 
   function removeStop(id) {
@@ -1289,6 +1691,42 @@ export default function App() {
     setPinUnlocked(false)
   }
 
+  // Tracker: check/uncheck a stop
+  function checkStop(stopId, val) {
+    const newChecked = { ...trackerChecked }
+    if (val) newChecked[stopId] = true
+    else delete newChecked[stopId]
+    set(ref(db, 'tracker/checked'), newChecked)
+  }
+
+  // Tracker: cascade a time shift from a stop forward through the same day
+  function applyDelay(fromStopId, day, minutes) {
+    if (!stops) return
+    const dayStops = stops
+      .filter(s => s.day === day)
+      .sort((a, b) => parseTimeMinutes(a.time) - parseTimeMinutes(b.time))
+
+    const fromIndex = dayStops.findIndex(s => s.id === fromStopId)
+    if (fromIndex === -1) return
+
+    const newOffsets = { ...trackerOffsets }
+    for (let i = fromIndex; i < dayStops.length; i++) {
+      const sid = dayStops[i].id
+      newOffsets[sid] = (newOffsets[sid] || 0) + minutes
+    }
+    set(ref(db, 'tracker/offsets'), newOffsets)
+  }
+
+  // Tracker: clear all delay offsets
+  function resetOffsets() {
+    set(ref(db, 'tracker/offsets'), {})
+  }
+
+  // Tracker: clear all tracker state (checks + offsets)
+  function resetTracker() {
+    set(ref(db, 'tracker'), { checked: {}, offsets: {} })
+  }
+
   if (stops === null) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -1303,13 +1741,12 @@ export default function App() {
         <div className="min-h-screen bg-gray-50">
           {/* Header */}
           <header className="bg-white border-b border-gray-200 sticky top-0 z-30 no-print">
-            <div className="max-w-2xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-              <div>
+            <div className="max-w-2xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
                 <h1 className="text-base sm:text-lg font-bold text-gray-900 leading-tight">🚗 Road Trip 2026</h1>
                 <p className="text-xs text-gray-400">May 14–17 · NYC → Columbia University</p>
               </div>
-              <div className="flex items-center gap-2">
-                {/* Lock/unlock toggle */}
+              <div className="flex items-center gap-2 flex-shrink-0">
                 {pinUnlocked ? (
                   <button
                     onClick={lock}
@@ -1328,7 +1765,7 @@ export default function App() {
                   </button>
                 )}
 
-                {pinUnlocked && (
+                {pinUnlocked && activeTab === 'itinerary' && (
                   <button
                     onClick={resetData}
                     className="text-xs text-gray-400 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:border-gray-400 transition-colors"
@@ -1336,13 +1773,43 @@ export default function App() {
                     Reset
                   </button>
                 )}
-                <button
-                  onClick={() => window.print()}
-                  className="text-xs bg-gray-900 text-white rounded-lg px-3 py-1.5 hover:bg-gray-700 transition-colors font-medium"
-                >
-                  Export PDF
-                </button>
+                {activeTab === 'itinerary' && (
+                  <button
+                    onClick={() => window.print()}
+                    className="text-xs bg-gray-900 text-white rounded-lg px-3 py-1.5 hover:bg-gray-700 transition-colors font-medium"
+                  >
+                    Export PDF
+                  </button>
+                )}
               </div>
+            </div>
+
+            {/* Tab bar */}
+            <div className="max-w-2xl mx-auto px-4 sm:px-6 flex border-t border-gray-100">
+              <button
+                onClick={() => setActiveTab('itinerary')}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'itinerary'
+                    ? 'border-gray-900 text-gray-900'
+                    : 'border-transparent text-gray-400 hover:text-gray-700'
+                }`}
+              >
+                🗺 Itinerary
+              </button>
+              <button
+                onClick={() => setActiveTab('tracker')}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors relative ${
+                  activeTab === 'tracker'
+                    ? 'border-amber-500 text-gray-900'
+                    : 'border-transparent text-gray-400 hover:text-gray-700'
+                }`}
+              >
+                📍 Live Tracker
+                {/* Live indicator dot */}
+                {Object.keys(trackerChecked).length > 0 && (
+                  <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
+                )}
+              </button>
             </div>
           </header>
 
@@ -1352,36 +1819,55 @@ export default function App() {
             <p className="text-gray-500 text-sm">NYC → Columbia University, New York</p>
           </div>
 
-          <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
-            <GeneralNotesSection note={generalNote} onUpdate={updateGeneralNote} />
+          {/* Tab: Itinerary */}
+          {activeTab === 'itinerary' && (
+            <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
+              <GeneralNotesSection note={generalNote} onUpdate={updateGeneralNote} />
 
-            <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-              <RotationBar stops={stops} />
+              <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+                <RotationBar stops={stops} />
 
-              {[1, 2, 3, 4].map(day => (
-                <DaySection
-                  key={day}
-                  day={day}
-                  stops={stops.filter(s => s.day === day)}
-                  onUpdate={updateStop}
-                  onRemove={removeStop}
-                  onAdd={addStop}
-                />
-              ))}
+                {[1, 2, 3, 4].map(day => (
+                  <DaySection
+                    key={day}
+                    day={day}
+                    stops={stops.filter(s => s.day === day)}
+                    onUpdate={updateStop}
+                    onRemove={removeStop}
+                    onAdd={addStop}
+                  />
+                ))}
 
-              <DragOverlay dropAnimation={null}>
-                {draggedStop ? <DragPreviewCard stop={draggedStop} /> : null}
-              </DragOverlay>
-            </DndContext>
+                <DragOverlay dropAnimation={null}>
+                  {draggedStop ? <DragPreviewCard stop={draggedStop} /> : null}
+                </DragOverlay>
+              </DndContext>
 
-            <DriverSummaryCards stops={stops} />
+              <DriverSummaryCards stops={stops} />
 
-            <p className="text-center text-xs text-gray-300 pb-8 no-print">
-              {pinUnlocked
-                ? 'Editing unlocked · Click any field to edit · Hover a stop to drag it'
-                : 'View only · Click 🔒 to unlock editing · Anyone can add notes below stops'}
-            </p>
-          </main>
+              <p className="text-center text-xs text-gray-300 pb-8 no-print">
+                {pinUnlocked
+                  ? 'Editing unlocked · Click any field to edit · Hover a stop to drag it'
+                  : 'View only · Click 🔒 to unlock editing · Anyone can add notes below stops'}
+              </p>
+            </main>
+          )}
+
+          {/* Tab: Live Tracker */}
+          {activeTab === 'tracker' && (
+            <LiveTrackerTab
+              stops={stops}
+              trackerChecked={trackerChecked}
+              trackerOffsets={trackerOffsets}
+              onCheck={checkStop}
+              onDelay={applyDelay}
+              onUpdate={updateStop}
+              onRemove={removeStop}
+              onAdd={addStop}
+              onResetOffsets={resetOffsets}
+              onResetAll={resetTracker}
+            />
+          )}
         </div>
 
         {showPinModal && (
