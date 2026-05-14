@@ -17,6 +17,7 @@ const DRIVER_COLORS = {
   kevin:    '#0F6E56',
   henry:    '#993C1D',
   eduardo:  '#534AB7',
+  yousif:   '#0E7490',
   stop:     '#185FA5',
   handoff:  '#9CA3AF',
   all:      '#374151',
@@ -27,9 +28,18 @@ const DRIVER_LABELS = {
   kevin:    'Kevin',
   henry:    'Henry',
   eduardo:  'Eduardo',
+  yousif:   'Yousif',
   stop:     'Stop',
   all:      'All',
   handoff:  'Handoff',
+}
+
+const EXPENSE_CATEGORIES = {
+  rental: { label: 'Rental', icon: '🚗' },
+  gas:    { label: 'Gas',    icon: '⛽' },
+  food:   { label: 'Food',   icon: '🍔' },
+  snacks: { label: 'Snacks', icon: '🍿' },
+  misc:   { label: 'Misc',   icon: '📦' },
 }
 
 const DAY_LABELS = {
@@ -328,6 +338,22 @@ function nextDriver(current) {
 
 function uid() {
   return `stop-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+}
+
+function computeSettlement(balances) {
+  const debtors   = Object.entries(balances).filter(([, b]) => b < -0.005).map(([n, b]) => ({ name: n, bal: b })).sort((a, b) => a.bal - b.bal)
+  const creditors = Object.entries(balances).filter(([, b]) => b > 0.005).map(([n, b]) => ({ name: n, bal: b })).sort((a, b) => b.bal - a.bal)
+  const transfers = []
+  let i = 0, j = 0
+  while (i < debtors.length && j < creditors.length) {
+    const amt = Math.min(-debtors[i].bal, creditors[j].bal)
+    if (amt > 0.005) transfers.push({ from: debtors[i].name, to: creditors[j].name, amount: amt })
+    debtors[i].bal += amt
+    creditors[j].bal -= amt
+    if (Math.abs(debtors[i].bal) < 0.005) i++
+    if (Math.abs(creditors[j].bal) < 0.005) j++
+  }
+  return transfers
 }
 
 // ─── PIN Modal ────────────────────────────────────────────────────────────────
@@ -1573,17 +1599,283 @@ function LiveTrackerTab({ stops, trackerChecked, trackerOffsets, onCheck, onDela
   )
 }
 
+// ─── Costs Tab ───────────────────────────────────────────────────────────────
+
+function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange }) {
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ amount: '', category: 'food', paidBy: 'ezzy', description: '' })
+  const amountRef = useRef(null)
+
+  const people = ['ezzy', 'kevin', 'henry', 'eduardo', 'yousif']
+  const expList = Object.values(expenses).sort((a, b) => b.timestamp - a.timestamp)
+
+  const paid = Object.fromEntries(people.map(p => [p, 0]))
+  expList.forEach(e => { if (paid[e.paidBy] !== undefined) paid[e.paidBy] += Number(e.amount) })
+
+  const total  = people.reduce((s, p) => s + paid[p], 0)
+  const share  = splitCount > 0 ? total / splitCount : 0
+  const balances = Object.fromEntries(people.map(p => [p, paid[p] - share]))
+  const transfers = computeSettlement({ ...balances })
+
+  useEffect(() => { if (showForm) setTimeout(() => amountRef.current?.focus(), 50) }, [showForm])
+
+  function submit(e) {
+    e.preventDefault()
+    const amt = parseFloat(form.amount)
+    if (!amt || isNaN(amt)) return
+    onAdd({ id: uid(), amount: amt, category: form.category, paidBy: form.paidBy, description: form.description.trim(), timestamp: Date.now() })
+    setForm(f => ({ ...f, amount: '', description: '' }))
+    setShowForm(false)
+  }
+
+  return (
+    <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
+      {/* Total + add button */}
+      <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4 flex items-center justify-between shadow-sm">
+        <div>
+          <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold mb-0.5">Total Spent</p>
+          <p className="text-2xl font-bold text-gray-900">${total.toFixed(2)}</p>
+          <p className="text-xs text-gray-400">{expList.length} expense{expList.length !== 1 ? 's' : ''}</p>
+        </div>
+        <button
+          onClick={() => setShowForm(true)}
+          className="flex items-center gap-1.5 bg-gray-900 text-white rounded-xl px-4 py-2.5 text-sm font-bold hover:bg-gray-700 transition-colors"
+        >
+          + Add
+        </button>
+      </div>
+
+      {/* Per-person paid cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+        {people.map(person => {
+          const color = DRIVER_COLORS[person]
+          const bal   = balances[person]
+          const settled = Math.abs(bal) < 0.01
+          return (
+            <div key={person} className="bg-white rounded-xl border p-3 shadow-sm" style={{ borderColor: color + '55' }}>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <DriverDot driver={person} size={8} />
+                <span className="text-xs font-bold text-gray-700">{DRIVER_LABELS[person]}</span>
+              </div>
+              <p className="text-xl font-bold text-gray-900">${paid[person].toFixed(2)}</p>
+              <p className={`text-xs font-semibold mt-0.5 ${settled ? 'text-gray-400' : bal > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                {settled ? 'even' : bal > 0 ? `+$${bal.toFixed(2)} owed` : `-$${Math.abs(bal).toFixed(2)} owes`}
+              </p>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Split + settlement */}
+      <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm font-semibold text-gray-700">Split among</span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => onSplitCountChange(Math.max(1, splitCount - 1))} className="w-7 h-7 rounded-full border border-gray-200 text-sm hover:bg-gray-100 font-bold leading-none">−</button>
+            <span className="font-mono font-bold text-gray-900 w-5 text-center">{splitCount}</span>
+            <button onClick={() => onSplitCountChange(splitCount + 1)} className="w-7 h-7 rounded-full border border-gray-200 text-sm hover:bg-gray-100 font-bold leading-none">+</button>
+            <span className="text-sm text-gray-500">people · <span className="font-mono font-semibold text-gray-700">${share.toFixed(2)}/ea</span></span>
+          </div>
+        </div>
+
+        {transfers.length === 0 ? (
+          <p className="text-xs text-gray-400 text-center py-1.5">
+            {total < 0.01 ? 'No expenses yet' : '✓ All settled up!'}
+          </p>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">To settle up</p>
+            {transfers.map((t, i) => (
+              <div key={i} className="flex items-center gap-2 py-1.5 border-t border-gray-50">
+                <div className="flex items-center gap-1 min-w-0">
+                  <DriverDot driver={t.from} size={8} />
+                  <span className="text-sm font-semibold truncate" style={{ color: DRIVER_COLORS[t.from] }}>{DRIVER_LABELS[t.from]}</span>
+                </div>
+                <span className="text-gray-400 text-sm flex-shrink-0">→</span>
+                <div className="flex items-center gap-1 min-w-0">
+                  <DriverDot driver={t.to} size={8} />
+                  <span className="text-sm font-semibold truncate" style={{ color: DRIVER_COLORS[t.to] }}>{DRIVER_LABELS[t.to]}</span>
+                </div>
+                <span className="ml-auto font-mono font-bold text-gray-800 flex-shrink-0">${t.amount.toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Category breakdown */}
+      {expList.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4 shadow-sm">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">By Category</p>
+          <div className="space-y-1.5">
+            {Object.entries(EXPENSE_CATEGORIES).map(([key, cat]) => {
+              const catTotal = expList.filter(e => e.category === key).reduce((s, e) => s + Number(e.amount), 0)
+              if (catTotal === 0) return null
+              const pct = total > 0 ? (catTotal / total) * 100 : 0
+              return (
+                <div key={key} className="flex items-center gap-2">
+                  <span className="text-base w-6 flex-shrink-0">{cat.icon}</span>
+                  <span className="text-xs text-gray-600 w-14 flex-shrink-0">{cat.label}</span>
+                  <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-gray-600 rounded-full" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-xs font-mono font-semibold text-gray-700 w-14 text-right flex-shrink-0">${catTotal.toFixed(2)}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Expense list */}
+      {expList.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">All Expenses</p>
+          {expList.map(exp => {
+            const cat = EXPENSE_CATEGORIES[exp.category] || EXPENSE_CATEGORIES.misc
+            return (
+              <div key={exp.id} className="bg-white rounded-xl border border-gray-100 px-4 py-3 flex items-center gap-3 group shadow-sm">
+                <span className="text-xl flex-shrink-0">{cat.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800 truncate">{exp.description || cat.label}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <DriverDot driver={exp.paidBy} size={6} />
+                    <span className="text-xs text-gray-500">{DRIVER_LABELS[exp.paidBy]}</span>
+                    <span className="text-gray-200">·</span>
+                    <span className="text-xs text-gray-400">{cat.label}</span>
+                  </div>
+                </div>
+                <span className="font-mono font-bold text-gray-900 text-sm flex-shrink-0">${Number(exp.amount).toFixed(2)}</span>
+                <button
+                  onClick={() => onRemove(exp.id)}
+                  className="opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded-full bg-red-50 text-red-400 hover:bg-red-100 text-xs transition-opacity flex-shrink-0"
+                  title="Remove"
+                >✕</button>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="text-center py-12">
+          <p className="text-4xl mb-2">💸</p>
+          <p className="text-sm text-gray-400">No expenses yet — tap Add to log the first one.</p>
+        </div>
+      )}
+
+      {/* Add expense modal */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-4" onClick={() => setShowForm(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
+            <h3 className="font-bold text-gray-900 mb-4 text-base">Add Expense</h3>
+            <form onSubmit={submit} className="space-y-4">
+              {/* Amount */}
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Amount ($)</label>
+                <input
+                  ref={amountRef}
+                  type="number" min="0" step="0.01" placeholder="0.00"
+                  value={form.amount}
+                  onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-xl font-mono outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+                  required
+                />
+              </div>
+
+              {/* Category */}
+              <div>
+                <label className="text-xs text-gray-500 mb-1.5 block">Category</label>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {Object.entries(EXPENSE_CATEGORIES).map(([key, cat]) => (
+                    <button key={key} type="button"
+                      onClick={() => setForm(f => ({ ...f, category: key }))}
+                      className={`flex flex-col items-center gap-0.5 py-2 px-1 rounded-xl border text-xs font-semibold transition-colors ${
+                        form.category === key ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                      }`}
+                    >
+                      <span className="text-lg">{cat.icon}</span>
+                      <span className="text-[10px]">{cat.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Paid by */}
+              <div>
+                <label className="text-xs text-gray-500 mb-1.5 block">Paid by</label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {people.map(person => (
+                    <button key={person} type="button"
+                      onClick={() => setForm(f => ({ ...f, paidBy: person }))}
+                      className={`py-2 rounded-xl border text-xs font-bold transition-colors ${
+                        form.paidBy === person ? 'text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                      }`}
+                      style={form.paidBy === person ? { backgroundColor: DRIVER_COLORS[person] } : {}}
+                    >
+                      {DRIVER_LABELS[person]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Description <span className="text-gray-300">(optional)</span></label>
+                <input
+                  type="text" placeholder="e.g. Shell on I-81"
+                  value={form.description}
+                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => setShowForm(false)} className="flex-1 border border-gray-200 rounded-xl py-2.5 text-sm text-gray-600 hover:bg-gray-50 font-medium">Cancel</button>
+                <button type="submit" className="flex-1 bg-gray-900 text-white rounded-xl py-2.5 text-sm font-bold hover:bg-gray-700">Add</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </main>
+  )
+}
+
 // ─── Gallery Tab ─────────────────────────────────────────────────────────────
 
 const driveImg = (id, w = 1600) => `https://drive.google.com/thumbnail?id=${id}&sz=w${w}`
 
-function GalleryTab({ images, loading, error }) {
-  const [idx, setIdx] = useState(0)
-  const [imgLoaded, setImgLoaded] = useState(false)
-  const total = images.length
+function GalleryTab() {
+  const [images, setImages]           = useState([])
+  const [loading, setLoading]         = useState(false)
+  const [fetchError, setFetchError]   = useState(null)
+  const [idx, setIdx]                 = useState(0)
+  const [imgLoaded, setImgLoaded]     = useState(false)
+  const [uploadToken, setUploadToken] = useState(null)
+  const [uploading, setUploading]     = useState(false)
+  const [uploadResults, setUploadResults] = useState([])
+  const [dragging, setDragging]       = useState(false)
 
+  const tokenClientRef  = useRef(null)
+  const pendingFilesRef = useRef(null)
+  const fileInputRef    = useRef(null)
+
+  const apiKey   = import.meta.env.VITE_GOOGLE_DRIVE_API_KEY
+  const folderId = import.meta.env.VITE_GOOGLE_DRIVE_FOLDER_ID
+  const clientId = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID
+  const total    = images.length
+
+  function fetchImages() {
+    if (!apiKey || !folderId) return
+    setLoading(true)
+    const q = encodeURIComponent(`'${folderId}' in parents and mimeType contains 'image/' and trashed=false`)
+    fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=200&orderBy=createdTime desc&key=${apiKey}`)
+      .then(r => r.json())
+      .then(data => { setImages(data.files || []); setLoading(false) })
+      .catch(err => { setFetchError(err.message); setLoading(false) })
+  }
+
+  useEffect(fetchImages, [])
   useEffect(() => { setImgLoaded(false) }, [idx])
-
   useEffect(() => {
     if (total === 0) return
     function onKey(e) {
@@ -1594,16 +1886,75 @@ function GalleryTab({ images, loading, error }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [total])
 
-  if (!import.meta.env.VITE_GOOGLE_DRIVE_API_KEY) {
+  function getTokenClient() {
+    if (tokenClientRef.current) return tokenClientRef.current
+    if (!clientId || !window.google?.accounts?.oauth2) return null
+    tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: 'https://www.googleapis.com/auth/drive.file',
+      callback: (resp) => {
+        if (resp.access_token) {
+          setUploadToken(resp.access_token)
+          if (pendingFilesRef.current) {
+            const f = pendingFilesRef.current
+            pendingFilesRef.current = null
+            doUpload(f, resp.access_token)
+          }
+        }
+      },
+    })
+    return tokenClientRef.current
+  }
+
+  async function doUpload(files, token) {
+    setUploading(true)
+    const arr = Array.from(files)
+    const results = arr.map(f => ({ name: f.name, done: false, error: null }))
+    setUploadResults([...results])
+    for (let i = 0; i < arr.length; i++) {
+      try {
+        const metadata = { name: arr[i].name, parents: [folderId] }
+        const form = new FormData()
+        form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }))
+        form.append('file', arr[i])
+        const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: form,
+        })
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}))
+          throw new Error(j.error?.message || `HTTP ${res.status}`)
+        }
+        results[i] = { ...results[i], done: true }
+      } catch (err) {
+        results[i] = { ...results[i], error: err.message }
+      }
+      setUploadResults([...results])
+    }
+    setUploading(false)
+    setTimeout(() => { fetchImages(); setUploadResults([]) }, 2500)
+  }
+
+  function handleFiles(files) {
+    if (!files?.length) return
+    if (!uploadToken) {
+      pendingFilesRef.current = files
+      getTokenClient()?.requestAccessToken()
+    } else {
+      doUpload(files, uploadToken)
+    }
+  }
+
+  if (!apiKey) {
     return (
       <main className="max-w-2xl mx-auto px-4 sm:px-6 py-16 text-center">
         <p className="text-5xl mb-4">📸</p>
         <p className="text-gray-700 font-semibold mb-1">Gallery not configured</p>
-        <p className="text-sm text-gray-400">Add <code className="bg-gray-100 px-1 rounded">VITE_GOOGLE_DRIVE_API_KEY</code> and <code className="bg-gray-100 px-1 rounded">VITE_GOOGLE_DRIVE_FOLDER_ID</code> to your <code className="bg-gray-100 px-1 rounded">.env</code> file.</p>
+        <p className="text-sm text-gray-400">Add <code className="bg-gray-100 px-1 rounded">VITE_GOOGLE_DRIVE_API_KEY</code> and <code className="bg-gray-100 px-1 rounded">VITE_GOOGLE_DRIVE_FOLDER_ID</code> to .env</p>
       </main>
     )
   }
-
   if (loading) {
     return (
       <main className="max-w-2xl mx-auto px-4 sm:px-6 py-16 text-center">
@@ -1612,93 +1963,142 @@ function GalleryTab({ images, loading, error }) {
       </main>
     )
   }
-
-  if (error) {
+  if (fetchError) {
     return (
       <main className="max-w-2xl mx-auto px-4 sm:px-6 py-16 text-center">
         <p className="text-5xl mb-4">⚠️</p>
         <p className="text-red-500 font-semibold text-sm">Could not load photos</p>
-        <p className="text-xs text-gray-400 mt-1">{error}</p>
+        <p className="text-xs text-gray-400 mt-1">{fetchError}</p>
       </main>
     )
   }
 
-  if (total === 0) {
-    return (
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-16 text-center">
-        <p className="text-5xl mb-4">📂</p>
-        <p className="text-gray-500 text-sm">No photos in the Drive folder yet.</p>
-        <p className="text-xs text-gray-400 mt-1">Add images to your shared Drive folder and reload.</p>
-      </main>
-    )
-  }
-
-  const current = images[idx]
+  const current = total > 0 ? images[idx] : null
 
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
-      {/* Hero slideshow */}
-      <div
-        className="relative bg-gray-900 rounded-2xl overflow-hidden flex items-center justify-center"
-        style={{ minHeight: 320 }}
-      >
-        {/* Loading skeleton */}
-        {!imgLoaded && (
-          <div className="absolute inset-0 bg-gray-800 animate-pulse" />
-        )}
-
-        <img
-          key={current.id}
-          src={driveImg(current.id, 1600)}
-          alt={current.name}
-          onLoad={() => setImgLoaded(true)}
-          className={`w-full object-contain max-h-[70vh] transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
-        />
-
-        {/* Prev */}
-        <button
-          onClick={() => setIdx(i => (i - 1 + total) % total)}
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center transition-colors text-2xl font-light select-none"
-          aria-label="Previous photo"
-        >‹</button>
-
-        {/* Next */}
-        <button
-          onClick={() => setIdx(i => (i + 1) % total)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center transition-colors text-2xl font-light select-none"
-          aria-label="Next photo"
-        >›</button>
-
-        {/* Counter */}
-        <div className="absolute top-3 right-3 bg-black/50 text-white text-xs font-mono px-2.5 py-1 rounded-full select-none">
-          {idx + 1} / {total}
+      {/* Slideshow */}
+      {current ? (
+        <>
+          <div className="relative bg-gray-900 rounded-2xl overflow-hidden flex items-center justify-center" style={{ minHeight: 320 }}>
+            {!imgLoaded && <div className="absolute inset-0 bg-gray-800 animate-pulse" />}
+            <img
+              key={current.id}
+              src={driveImg(current.id, 1600)}
+              alt={current.name}
+              onLoad={() => setImgLoaded(true)}
+              className={`w-full object-contain max-h-[70vh] transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+            />
+            <button onClick={() => setIdx(i => (i - 1 + total) % total)}
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center text-2xl font-light select-none"
+              aria-label="Previous">‹</button>
+            <button onClick={() => setIdx(i => (i + 1) % total)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center text-2xl font-light select-none"
+              aria-label="Next">›</button>
+            <div className="absolute top-3 right-3 bg-black/50 text-white text-xs font-mono px-2.5 py-1 rounded-full select-none">
+              {idx + 1} / {total}
+            </div>
+          </div>
+          <p className="text-center text-xs text-gray-400 mt-2.5 truncate px-8">
+            {current.name.replace(/\.[^.]+$/, '')}
+          </p>
+          <div className="flex justify-center gap-1.5 mt-3 flex-wrap px-4">
+            {images.map((_, i) => (
+              <button key={i} onClick={() => setIdx(i)}
+                className={`rounded-full transition-all duration-200 ${i === idx ? 'w-4 h-2 bg-gray-700' : 'w-2 h-2 bg-gray-300 hover:bg-gray-500'}`}
+                aria-label={`Photo ${i + 1}`} />
+            ))}
+          </div>
+          <p className="text-center text-xs text-gray-300 mt-3">← → arrow keys · click dots to jump</p>
+        </>
+      ) : (
+        <div className="text-center py-12">
+          <p className="text-5xl mb-3">📂</p>
+          <p className="text-gray-500 text-sm font-medium">No photos yet</p>
+          <p className="text-xs text-gray-400 mt-1">Upload the first one below!</p>
         </div>
-      </div>
+      )}
 
-      {/* Filename */}
-      <p className="text-center text-xs text-gray-400 mt-2.5 truncate px-8">
-        {current.name.replace(/\.[^.]+$/, '')}
-      </p>
+      {/* Upload section */}
+      <div className="mt-6 border-t border-gray-100 pt-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-bold text-gray-700">📤 Upload Photos</h3>
+          {uploadToken && (
+            <span className="text-xs text-green-600 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+              Signed in
+            </span>
+          )}
+        </div>
 
-      {/* Dot indicators */}
-      <div className="flex justify-center gap-1.5 mt-3 flex-wrap px-4">
-        {images.map((_, i) => (
+        {!clientId ? (
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+            <p className="text-xs font-semibold text-gray-600 mb-1">Upload not configured</p>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              Add <code className="bg-white border border-gray-200 px-1 rounded">VITE_GOOGLE_OAUTH_CLIENT_ID</code> to .env<br/>
+              Google Cloud Console → Credentials → Create OAuth 2.0 Client ID (Web app)<br/>
+              Add authorized origin: <code className="bg-white border border-gray-200 px-1 rounded">http://localhost:5173</code>
+            </p>
+          </div>
+        ) : !uploadToken ? (
           <button
-            key={i}
-            onClick={() => setIdx(i)}
-            className={`rounded-full transition-all duration-200 ${
-              i === idx
-                ? 'w-4 h-2 bg-gray-700'
-                : 'w-2 h-2 bg-gray-300 hover:bg-gray-500'
-            }`}
-            aria-label={`Photo ${i + 1}`}
-          />
-        ))}
-      </div>
+            onClick={() => getTokenClient()?.requestAccessToken()}
+            className="w-full flex items-center justify-center gap-2.5 border border-gray-200 rounded-xl py-3 text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors font-medium"
+          >
+            <svg width="18" height="18" viewBox="0 0 48 48">
+              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+            </svg>
+            Sign in with Google to upload
+          </button>
+        ) : (
+          <>
+            <div
+              onDragOver={e => { e.preventDefault(); setDragging(true) }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files) }}
+              onClick={() => !uploading && fileInputRef.current?.click()}
+              className={`rounded-xl border-2 border-dashed py-8 text-center cursor-pointer transition-colors ${
+                dragging ? 'border-purple-400 bg-purple-50' : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50'
+              } ${uploading ? 'pointer-events-none opacity-60' : ''}`}
+            >
+              <p className="text-2xl mb-1">🖼️</p>
+              <p className="text-sm text-gray-600 font-medium">Drop photos here or click to browse</p>
+              <p className="text-xs text-gray-400 mt-0.5">JPG · PNG · HEIC · multiple files OK</p>
+              <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
+                onChange={e => handleFiles(e.target.files)} />
+            </div>
 
-      <p className="text-center text-xs text-gray-300 mt-4 pb-8">
-        ← → arrow keys · click dots to jump
-      </p>
+            {uploadResults.length > 0 && (
+              <div className="mt-3 space-y-1.5">
+                {uploadResults.map((r, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    <span className={r.done ? 'text-green-500' : r.error ? 'text-red-500' : 'text-gray-400 animate-pulse'}>
+                      {r.done ? '✓' : r.error ? '✕' : '⋯'}
+                    </span>
+                    <span className={`truncate flex-1 ${r.error ? 'text-red-500' : 'text-gray-600'}`}>{r.name}</span>
+                    {r.error && <span className="text-red-400 text-xs flex-shrink-0 max-w-[120px] truncate">{r.error}</span>}
+                  </div>
+                ))}
+                {!uploading && (
+                  <p className="text-xs mt-1.5 font-medium">
+                    {uploadResults.some(r => r.error)
+                      ? <span className="text-orange-500">⚠️ Some uploads failed — check folder is shared as Editor</span>
+                      : <span className="text-green-600">✓ Uploaded! Refreshing gallery…</span>
+                    }
+                  </p>
+                )}
+              </div>
+            )}
+
+            <p className="text-xs text-gray-400 mt-2.5">
+              Folder must be shared as <strong>Editor</strong> (not Viewer) for uploads to work.
+            </p>
+          </>
+        )}
+      </div>
     </main>
   )
 }
@@ -1715,9 +2115,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('itinerary')
   const [trackerChecked, setTrackerChecked] = useState({})
   const [trackerOffsets, setTrackerOffsets] = useState({})
-  const [galleryImages, setGalleryImages] = useState([])
-  const [galleryLoading, setGalleryLoading] = useState(false)
-  const [galleryError, setGalleryError] = useState(null)
+  const [expenses, setExpenses] = useState({})
+  const [splitCount, setSplitCountState] = useState(4)
   const skipSaveRef = useRef(false)
 
   const sensors = useSensors(
@@ -1770,17 +2169,16 @@ export default function App() {
     return unsub
   }, [])
 
-  // Fetch gallery images from Google Drive on mount
+  // Subscribe to expenses
   useEffect(() => {
-    const apiKey = import.meta.env.VITE_GOOGLE_DRIVE_API_KEY
-    const folderId = import.meta.env.VITE_GOOGLE_DRIVE_FOLDER_ID
-    if (!apiKey || !folderId) return
-    setGalleryLoading(true)
-    const q = encodeURIComponent(`'${folderId}' in parents and mimeType contains 'image/' and trashed=false`)
-    fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=100&orderBy=createdTime&key=${apiKey}`)
-      .then(r => r.json())
-      .then(data => { setGalleryImages(data.files || []); setGalleryLoading(false) })
-      .catch(err => { setGalleryError(err.message); setGalleryLoading(false) })
+    const dbRef = ref(db, 'expenses')
+    return onValue(dbRef, snap => setExpenses(snap.val() || {}))
+  }, [])
+
+  // Subscribe to splitCount
+  useEffect(() => {
+    const dbRef = ref(db, 'splitCount')
+    return onValue(dbRef, snap => { if (snap.val() !== null) setSplitCountState(snap.val()) })
   }, [])
 
   // Subscribe to tracker state (checked + offsets)
@@ -1871,6 +2269,19 @@ export default function App() {
   // Tracker: clear all tracker state (checks + offsets)
   function resetTracker() {
     set(ref(db, 'tracker'), { checked: {}, offsets: {} })
+  }
+
+  // Costs: add / remove expense
+  function addExpense(expense) {
+    set(ref(db, `expenses/${expense.id}`), expense)
+  }
+
+  function removeExpense(id) {
+    set(ref(db, `expenses/${id}`), null)
+  }
+
+  function updateSplitCount(n) {
+    set(ref(db, 'splitCount'), n)
   }
 
   if (stops === null) {
@@ -1966,6 +2377,16 @@ export default function App() {
               >
                 📸 Gallery
               </button>
+              <button
+                onClick={() => setActiveTab('costs')}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'costs'
+                    ? 'border-emerald-500 text-gray-900'
+                    : 'border-transparent text-gray-400 hover:text-gray-700'
+                }`}
+              >
+                💰 Costs
+              </button>
             </div>
           </header>
 
@@ -2010,11 +2431,16 @@ export default function App() {
           )}
 
           {/* Tab: Gallery */}
-          {activeTab === 'gallery' && (
-            <GalleryTab
-              images={galleryImages}
-              loading={galleryLoading}
-              error={galleryError}
+          {activeTab === 'gallery' && <GalleryTab />}
+
+          {/* Tab: Costs */}
+          {activeTab === 'costs' && (
+            <CostsTab
+              expenses={expenses}
+              splitCount={splitCount}
+              onAdd={addExpense}
+              onRemove={removeExpense}
+              onSplitCountChange={updateSplitCount}
             />
           )}
 
