@@ -18,6 +18,7 @@ const DRIVER_COLORS = {
   henry:    '#993C1D',
   eduardo:  '#534AB7',
   yousif:   '#0E7490',
+  abob:     '#C026D3',
   stop:     '#185FA5',
   handoff:  '#9CA3AF',
   all:      '#374151',
@@ -29,6 +30,7 @@ const DRIVER_LABELS = {
   henry:    'Henry',
   eduardo:  'Eduardo',
   yousif:   'Yousif',
+  abob:     'Abob',
   stop:     'Stop',
   all:      'All',
   handoff:  'Handoff',
@@ -1601,32 +1603,81 @@ function LiveTrackerTab({ stops, trackerChecked, trackerOffsets, onCheck, onDela
 
 // ─── Costs Tab ───────────────────────────────────────────────────────────────
 
-function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange }) {
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ amount: '', category: 'food', paidBy: 'ezzy', description: '' })
+const COST_PEOPLE = ['ezzy', 'kevin', 'henry', 'eduardo', 'yousif', 'abob']
+const EMPTY_EXPENSE_FORM = { amount: '', category: 'food', paidBy: 'ezzy', description: '', excludedFrom: [] }
+
+function CostsTab({ expenses, onAdd, onRemove, onUpdate }) {
+  const [expenseModal, setExpenseModal] = useState(null) // null | { mode:'add' } | { mode:'edit', expense }
+  const [form, setForm] = useState(EMPTY_EXPENSE_FORM)
   const amountRef = useRef(null)
 
-  const people = ['ezzy', 'kevin', 'henry', 'eduardo', 'yousif']
   const expList = Object.values(expenses).sort((a, b) => b.timestamp - a.timestamp)
 
-  const paid = Object.fromEntries(people.map(p => [p, 0]))
-  expList.forEach(e => { if (paid[e.paidBy] !== undefined) paid[e.paidBy] += Number(e.amount) })
-
-  const total  = people.reduce((s, p) => s + paid[p], 0)
-  const share  = splitCount > 0 ? total / splitCount : 0
-  const balances = Object.fromEntries(people.map(p => [p, paid[p] - share]))
+  // Per-expense balance computation
+  const paid = Object.fromEntries(COST_PEOPLE.map(p => [p, 0]))
+  const owes = Object.fromEntries(COST_PEOPLE.map(p => [p, 0]))
+  expList.forEach(exp => {
+    if (paid[exp.paidBy] !== undefined) paid[exp.paidBy] += Number(exp.amount)
+    const excluded = exp.excludedFrom || []
+    const included = COST_PEOPLE.filter(p => !excluded.includes(p))
+    if (included.length === 0) return
+    const perPerson = Number(exp.amount) / included.length
+    included.forEach(p => { owes[p] += perPerson })
+  })
+  const balances = Object.fromEntries(COST_PEOPLE.map(p => [p, paid[p] - owes[p]]))
+  const total = expList.reduce((s, e) => s + Number(e.amount), 0)
   const transfers = computeSettlement({ ...balances })
 
-  useEffect(() => { if (showForm) setTimeout(() => amountRef.current?.focus(), 50) }, [showForm])
+  useEffect(() => { if (expenseModal) setTimeout(() => amountRef.current?.focus(), 50) }, [expenseModal])
+
+  function openAdd() {
+    setForm(EMPTY_EXPENSE_FORM)
+    setExpenseModal({ mode: 'add' })
+  }
+
+  function openEdit(exp) {
+    setForm({
+      amount: String(exp.amount),
+      category: exp.category,
+      paidBy: exp.paidBy,
+      description: exp.description || '',
+      excludedFrom: exp.excludedFrom || [],
+    })
+    setExpenseModal({ mode: 'edit', expense: exp })
+  }
+
+  function toggleExcluded(person) {
+    setForm(f => ({
+      ...f,
+      excludedFrom: f.excludedFrom.includes(person)
+        ? f.excludedFrom.filter(p => p !== person)
+        : [...f.excludedFrom, person],
+    }))
+  }
 
   function submit(e) {
     e.preventDefault()
     const amt = parseFloat(form.amount)
     if (!amt || isNaN(amt)) return
-    onAdd({ id: uid(), amount: amt, category: form.category, paidBy: form.paidBy, description: form.description.trim(), timestamp: Date.now() })
-    setForm(f => ({ ...f, amount: '', description: '' }))
-    setShowForm(false)
+    const data = {
+      amount: amt,
+      category: form.category,
+      paidBy: form.paidBy,
+      description: form.description.trim(),
+      excludedFrom: form.excludedFrom,
+    }
+    if (expenseModal.mode === 'add') {
+      onAdd({ id: uid(), ...data, timestamp: Date.now() })
+    } else {
+      onUpdate({ ...expenseModal.expense, ...data })
+    }
+    setExpenseModal(null)
   }
+
+  const includedInForm = COST_PEOPLE.filter(p => !form.excludedFrom.includes(p))
+  const perPersonPreview = includedInForm.length > 0 && form.amount && !isNaN(parseFloat(form.amount))
+    ? parseFloat(form.amount) / includedInForm.length
+    : null
 
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
@@ -1638,7 +1689,7 @@ function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange })
           <p className="text-xs text-gray-400">{expList.length} expense{expList.length !== 1 ? 's' : ''}</p>
         </div>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={openAdd}
           className="flex items-center gap-1.5 bg-gray-900 text-white rounded-xl px-4 py-2.5 text-sm font-bold hover:bg-gray-700 transition-colors"
         >
           + Add
@@ -1646,10 +1697,10 @@ function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange })
       </div>
 
       {/* Per-person paid cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-        {people.map(person => {
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+        {COST_PEOPLE.map(person => {
           const color = DRIVER_COLORS[person]
-          const bal   = balances[person]
+          const bal = balances[person]
           const settled = Math.abs(bal) < 0.01
           return (
             <div key={person} className="bg-white dark:bg-gray-800 rounded-xl border p-3 shadow-sm" style={{ borderColor: color + '55' }}>
@@ -1666,18 +1717,8 @@ function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange })
         })}
       </div>
 
-      {/* Split + settlement */}
+      {/* Settlement */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-4 mb-4 shadow-sm">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Split among</span>
-          <div className="flex items-center gap-2">
-            <button onClick={() => onSplitCountChange(Math.max(1, splitCount - 1))} className="w-7 h-7 rounded-full border border-gray-200 dark:border-gray-600 dark:text-gray-300 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 font-bold leading-none">−</button>
-            <span className="font-mono font-bold text-gray-900 dark:text-gray-100 w-5 text-center">{splitCount}</span>
-            <button onClick={() => onSplitCountChange(splitCount + 1)} className="w-7 h-7 rounded-full border border-gray-200 dark:border-gray-600 dark:text-gray-300 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 font-bold leading-none">+</button>
-            <span className="text-sm text-gray-500">people · <span className="font-mono font-semibold text-gray-700 dark:text-gray-300">${share.toFixed(2)}/ea</span></span>
-          </div>
-        </div>
-
         {transfers.length === 0 ? (
           <p className="text-xs text-gray-400 text-center py-1.5">
             {total < 0.01 ? 'No expenses yet' : '✓ All settled up!'}
@@ -1733,19 +1774,35 @@ function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange })
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">All Expenses</p>
           {expList.map(exp => {
             const cat = EXPENSE_CATEGORIES[exp.category] || EXPENSE_CATEGORIES.misc
+            const excluded = exp.excludedFrom || []
+            const included = COST_PEOPLE.filter(p => !excluded.includes(p))
+            const perPerson = included.length > 0 ? Number(exp.amount) / included.length : 0
             return (
               <div key={exp.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 px-4 py-3 flex items-center gap-3 group shadow-sm">
                 <span className="text-xl flex-shrink-0">{cat.icon}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{exp.description || cat.label}</p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                     <DriverDot driver={exp.paidBy} size={6} />
                     <span className="text-xs text-gray-500">{DRIVER_LABELS[exp.paidBy]}</span>
                     <span className="text-gray-200 dark:text-gray-600">·</span>
                     <span className="text-xs text-gray-400">{cat.label}</span>
+                    {excluded.length > 0 && (
+                      <>
+                        <span className="text-gray-200 dark:text-gray-600">·</span>
+                        <span className="text-xs text-gray-400">
+                          {included.length} people · ${perPerson.toFixed(2)}/ea
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
                 <span className="font-mono font-bold text-gray-900 dark:text-gray-100 text-sm flex-shrink-0">${Number(exp.amount).toFixed(2)}</span>
+                <button
+                  onClick={() => openEdit(exp)}
+                  className="opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-400 hover:bg-blue-100 text-xs transition-opacity flex-shrink-0"
+                  title="Edit"
+                >✎</button>
                 <button
                   onClick={() => onRemove(exp.id)}
                   className="opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded-full bg-red-50 text-red-400 hover:bg-red-100 text-xs transition-opacity flex-shrink-0"
@@ -1762,11 +1819,13 @@ function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange })
         </div>
       )}
 
-      {/* Add expense modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-4" onClick={() => setShowForm(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
-            <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-4 text-base">Add Expense</h3>
+      {/* Add / Edit expense modal */}
+      {expenseModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-4" onClick={() => setExpenseModal(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm p-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-4 text-base">
+              {expenseModal.mode === 'add' ? 'Add Expense' : 'Edit Expense'}
+            </h3>
             <form onSubmit={submit} className="space-y-4">
               {/* Amount */}
               <div>
@@ -1802,8 +1861,8 @@ function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange })
               {/* Paid by */}
               <div>
                 <label className="text-xs text-gray-500 dark:text-gray-400 mb-1.5 block">Paid by</label>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {people.map(person => (
+                <div className="grid grid-cols-3 gap-1.5">
+                  {COST_PEOPLE.map(person => (
                     <button key={person} type="button"
                       onClick={() => setForm(f => ({ ...f, paidBy: person }))}
                       className={`py-2 rounded-xl border text-xs font-bold transition-colors ${
@@ -1815,6 +1874,36 @@ function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange })
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Exclude from split */}
+              <div>
+                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1.5 block">
+                  Exclude from split <span className="text-gray-300 dark:text-gray-600">(tap to exclude)</span>
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {COST_PEOPLE.map(person => {
+                    const isExcluded = form.excludedFrom.includes(person)
+                    return (
+                      <button key={person} type="button"
+                        onClick={() => toggleExcluded(person)}
+                        className={`py-2 rounded-xl border text-xs font-bold transition-colors ${
+                          isExcluded
+                            ? 'bg-gray-100 dark:bg-gray-600 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-500 line-through'
+                            : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-gray-400'
+                        }`}
+                      >
+                        {DRIVER_LABELS[person]}
+                      </button>
+                    )
+                  })}
+                </div>
+                {form.excludedFrom.length > 0 && (
+                  <p className="text-xs text-gray-400 mt-1.5">
+                    Split among {includedInForm.length} {includedInForm.length === 1 ? 'person' : 'people'}
+                    {perPersonPreview !== null ? ` · $${perPersonPreview.toFixed(2)}/ea` : ''}
+                  </p>
+                )}
               </div>
 
               {/* Description */}
@@ -1829,8 +1918,10 @@ function CostsTab({ expenses, splitCount, onAdd, onRemove, onSplitCountChange })
               </div>
 
               <div className="flex gap-2 pt-1">
-                <button type="button" onClick={() => setShowForm(false)} className="flex-1 border border-gray-200 dark:border-gray-600 rounded-xl py-2.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium">Cancel</button>
-                <button type="submit" className="flex-1 bg-gray-900 text-white rounded-xl py-2.5 text-sm font-bold hover:bg-gray-700">Add</button>
+                <button type="button" onClick={() => setExpenseModal(null)} className="flex-1 border border-gray-200 dark:border-gray-600 rounded-xl py-2.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium">Cancel</button>
+                <button type="submit" className="flex-1 bg-gray-900 text-white rounded-xl py-2.5 text-sm font-bold hover:bg-gray-700">
+                  {expenseModal.mode === 'add' ? 'Add' : 'Save'}
+                </button>
               </div>
             </form>
           </div>
@@ -2178,8 +2269,7 @@ function LoginGate({ onLogin }) {
 
 // ─── Main App ────────────────────────────────────────────────────────────────
 
-export default function App() {
-  const [loggedIn, setLoggedIn] = useState(() => sessionStorage.getItem('site_auth') === '1')
+function AppContent({ darkMode, setDarkMode }) {
   const [stops, setStops] = useState(null)
   const [notes, setNotes] = useState({})
   const [generalNote, setGeneralNote] = useState('')
@@ -2190,16 +2280,7 @@ export default function App() {
   const [trackerChecked, setTrackerChecked] = useState({})
   const [trackerOffsets, setTrackerOffsets] = useState({})
   const [expenses, setExpenses] = useState({})
-  const [splitCount, setSplitCountState] = useState(4)
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('dark') === '1')
   const skipSaveRef = useRef(false)
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', darkMode)
-    localStorage.setItem('dark', darkMode ? '1' : '0')
-  }, [darkMode])
-
-  if (!loggedIn) return <LoginGate onLogin={() => setLoggedIn(true)} />
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -2255,12 +2336,6 @@ export default function App() {
   useEffect(() => {
     const dbRef = ref(db, 'expenses')
     return onValue(dbRef, snap => setExpenses(snap.val() || {}))
-  }, [])
-
-  // Subscribe to splitCount
-  useEffect(() => {
-    const dbRef = ref(db, 'splitCount')
-    return onValue(dbRef, snap => { if (snap.val() !== null) setSplitCountState(snap.val()) })
   }, [])
 
   // Subscribe to tracker state (checked + offsets)
@@ -2362,8 +2437,8 @@ export default function App() {
     set(ref(db, `expenses/${id}`), null)
   }
 
-  function updateSplitCount(n) {
-    set(ref(db, 'splitCount'), n)
+  function updateExpense(expense) {
+    set(ref(db, `expenses/${expense.id}`), expense)
   }
 
   if (stops === null) {
@@ -2525,10 +2600,9 @@ export default function App() {
           {activeTab === 'costs' && (
             <CostsTab
               expenses={expenses}
-              splitCount={splitCount}
               onAdd={addExpense}
               onRemove={removeExpense}
-              onSplitCountChange={updateSplitCount}
+              onUpdate={updateExpense}
             />
           )}
 
@@ -2558,4 +2632,17 @@ export default function App() {
       </NotesContext.Provider>
     </EditContext.Provider>
   )
+}
+
+export default function App() {
+  const [loggedIn, setLoggedIn] = useState(() => sessionStorage.getItem('site_auth') === '1')
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('dark') === '1')
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode)
+    localStorage.setItem('dark', darkMode ? '1' : '0')
+  }, [darkMode])
+
+  if (!loggedIn) return <LoginGate onLogin={() => setLoggedIn(true)} />
+  return <AppContent darkMode={darkMode} setDarkMode={setDarkMode} />
 }
